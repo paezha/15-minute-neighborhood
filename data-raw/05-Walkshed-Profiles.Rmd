@@ -1,0 +1,454 @@
+---
+title: "Profile Walksheds"
+author: "Antonio Paez"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this document we profile the ped sheds based on their network attributes.
+
+# Preliminaries
+
+Load packages:
+```{r}
+library(dplyr) # A Grammar of Data Manipulation
+library(evtree) # Evolutionary Learning of Globally Optimal Trees
+library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(glue) # Interpreted String Literals
+library(patchwork) # The Composer of Plots
+library(tidyr) # Tidy Messy Data
+library(tree) # Classification and Regression Trees
+library(sf) # Simple Features for R
+library(skimr) # Compact and Flexible Summaries of Data
+library(SOMbrero) # SOM Bound to Realize Euclidean and Relational Outputs
+library(stringr) # Simple, Consistent Wrappers for Common String Operations
+library(units) # Measurement Units for R Vectors
+library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
+```
+
+Load data:
+```{r}
+load(file = "amenities_walkshed.rda")
+load(file = "hamilton_net.rda")
+load(file = "urban_hammer_da.rda")
+data("urban_types")
+load(file = "walksheds.rda")
+load(file = "walksheds_net_attributes.rda")
+```
+
+## Classification tree
+
+The aim is to train a classification tree to profile urban and suburban walksheds based on the attributes of the network. We need to drop 1 observation that has an NA in `transitivity`:
+```{r}
+d <- walksheds_net_attributes |>
+                  drop_na()
+```
+
+
+We use a technique with evolutionary trees - an alternative to classification trees that is less affecte by the greediness of the algorithm. Since evolutionary trees have some randomness (for the initial values), we can try several to find whether there are patterns. In this case we try four different random seed. 
+
+Tree 1 with seed 1 (912571):
+```{r}
+#seed1 <- sample.int(1000000, 1)
+seed1 <- 912571
+set.seed(seed1)
+tree1 <- evtree(Type ~ ., 
+                data = d |> select(-GeoUID))
+summary(tree1)
+```
+
+Tree 2 with seed 2 (94766):
+```{r}
+#seed2 <- sample.int(1000000, 1)
+seed2 <- 94766
+set.seed(seed2)
+tree2 <- evtree(Type ~ ., 
+                data = d |> select(-GeoUID))
+summary(tree2)
+```
+
+Tree 3 with seed 3 (46125):
+```{r}
+#seed3 <- sample.int(1000000, 1)
+seed3 <- 46125
+set.seed(seed3)
+tree3 <- evtree(Type ~ ., 
+                data = d |> select(-GeoUID))
+summary(tree3)
+```
+
+Tree 4 with seed 4 (556090)
+```{r}
+#seed4 <- sample.int(1000000, 1)
+seed4 <- 556090
+set.seed(seed4)
+tree4 <- evtree(Type ~ ., 
+                data = d |> select(-GeoUID))
+summary(tree4)
+```
+
+```{r}
+#seed4 <- sample.int(1000000, 1)
+seed4 <- 556090
+set.seed(seed4)
+tree5 <- evtree(Type ~ ., 
+                data = d |> select(-GeoUID))
+summary(tree5)
+```
+
+Create a function to estimate the missclassification rate and the evaluation function:
+```{r}
+mc <- function(obj) 1 - mean(predict(obj) == d$Type)
+
+
+evalfun <- function(obj) 2 * nrow(d) * mc(obj) + width(obj) * log(nrow(d))
+
+#trees <- list("evtree" = tree1, "rpart" = rp, "ctree" = ct, "rpart2" = rp2, "ctree2" = ct2)
+trees <- list("evtree 1" = tree1, "evtree 2" = tree2, "evtree 3" = tree3, "evtree 4" = tree4)
+
+round(sapply(trees, function(obj) c("misclassification" = mc(obj), "evaluation function" = evalfun(obj))), digits = 7)
+
+```
+
+All trees have similar fit.
+
+Plot the trees:
+```{r}
+tree1_plot <- ggparty(tree1) +
+  geom_edge() +
+  geom_edge_label(aes(label = breaks_label)) +
+  geom_node_label(aes(label = splitvar), ids = "inner") +
+  # identical to  geom_node_splitvar() +
+  geom_node_label(aes(label = info), ids = "terminal")
+
+tree2_plot <- ggparty(tree2) +
+  geom_edge() +
+  geom_edge_label(aes(label = breaks_label)) +
+  geom_node_label(aes(label = splitvar), ids = "inner") +
+  # identical to  geom_node_splitvar() +
+  geom_node_label(aes(label = info), ids = "terminal")
+
+tree3_plot <- ggparty(tree3) +
+  geom_edge() +
+  geom_edge_label(aes(label = breaks_label)) +
+  geom_node_label(aes(label = splitvar), ids = "inner") +
+  # identical to  geom_node_splitvar() +
+  geom_node_label(aes(label = info), ids = "terminal")
+
+tree4_plot <- ggparty(tree4) +
+  geom_edge() +
+  geom_edge_label(aes(label = breaks_label)) +
+  geom_node_label(aes(label = splitvar), ids = "inner") +
+  # identical to  geom_node_splitvar() +
+  geom_node_label(aes(label = info), ids = "terminal")
+
+(tree1_plot + tree2_plot) / (tree3_plot + tree4_plot)
+```
+
+Notice that transitivity and motifs are the dominant attributes in the classification trees. Trees 1, 3, and 4 have the same general structure, and in fact trees 3 and 4 are identical. Based on this we choose to use `tree3`.
+
+Check the break labels of `tree3` to round:
+```{r}
+ggparty(tree3)$data$breaks_label
+```
+
+Plot the tree with the rounded break labels:
+```{r}
+ggparty(tree3) +
+  geom_edge() +
+  geom_edge_label(aes(label = str_replace(breaks_label, 
+                                          "0.0207311636201516", 
+                                          "0.021"))) +
+  geom_node_splitvar(aes(label = ifelse(kids == 0,
+                                        glue(" n = {nodesize}"), 
+                                        splitvar)),
+                     nudge_x = 0.0,
+                     ids = c(1, 2, 5)) +
+  geom_node_splitvar(aes(label = ifelse(kids == 0,
+                                        glue(" n = {nodesize}"), 
+                                        splitvar)),
+                     nudge_x = 0.02,
+                     ids = c(3, 4, 6, 7)) +
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", 
+                                            fill = Type),
+                                        position = position_fill()),
+                               xlab("Type"),
+                               theme_minimal()),
+                 # draw only one label for each axis
+                 shared_axis_labels = TRUE,
+                 # draw line between tree and legend
+                 legend_separator = FALSE
+                 )
+```
+
+Find examples of ped sheds in each of the leafs and plot the network for illustration.
+
+Leaf 1:
+```{r}
+
+seed <- sample.int(100000, 1)
+set.seed(seed)
+seed
+#69717
+
+st_intersection(hamilton_net$edges,
+             walksheds |> 
+  filter(GeoUID == (walksheds_net_attributes |> 
+                      filter(transitivity < 0.0207311636201516,
+                             motifs < 378, 
+                             Type == "Suburban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID)))) |>
+  ggplot() +
+  geom_sf()
+```
+
+Leaf 2 (urban):
+```{r}
+seed <- sample.int(100000, 1)
+set.seed(seed)
+seed
+#84451, 44785
+
+st_intersection(hamilton_net$edges,
+             walksheds |> 
+  filter(GeoUID == (walksheds_net_attributes |> 
+                      filter(motifs >= 378, 
+                             transitivity < 0.0207311636201516,
+                             Type == "Urban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID)))) |>
+  ggplot() +
+  geom_sf()
+```
+
+Leaf 3 (suburban):
+```{r}
+seed <- sample.int(100000, 1)
+set.seed(seed)
+seed
+#81461, 84451
+
+st_intersection(hamilton_net$edges,
+             walksheds |> 
+  filter(GeoUID == (walksheds_net_attributes |> 
+                      filter(motifs < 1024, 
+                             transitivity >= 0.0207311636201516,
+                             Type == "Suburban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID)))) |>
+  ggplot() +
+  geom_sf()
+```
+
+Leaf 4 (urban):
+```{r}
+seed <- sample.int(100000, 1)
+set.seed(seed)
+seed
+#52534
+
+st_intersection(hamilton_net$edges,
+             walksheds |> 
+  filter(GeoUID == (walksheds_net_attributes |> 
+                      filter(motifs >= 1024, 
+                             transitivity >= 0.0207311636201516,
+                             Type == "Urban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID)))) |>
+  ggplot() +
+  geom_sf()
+```
+
+Add leaf labels to data:
+```{r}
+d <- d |>
+  mutate(leaf = case_when(transitivity < 0.0207311636201516 & motifs < 378 ~ "Leaf 1",
+                          transitivity < 0.0207311636201516 & motifs >= 378 ~ "Leaf 2",
+                          transitivity >= 0.0207311636201516 & motifs < 1024 ~ "Leaf 3",
+                          transitivity >= 0.0207311636201516 & motifs >= 1024 ~ "Leaf 4"),
+         leaf = factor(leaf))
+```
+
+```{r}
+skim(d)
+```
+
+```{r}
+d |>
+  left_join(walksheds |>
+              select(-Type) |>
+              mutate(area = st_area(geometry),
+                     area = units::set_units(area, km^2) |> 
+                       drop_units(),
+                     area = log(area)) |>
+              st_drop_geometry(),
+            by = "GeoUID") |>
+  lm(area ~ leaf, data = _) |>
+  summary()
+```
+
+But what about accessibility??
+
+Summary of amenity categories by DA and Type:
+```{r}
+amenities_walksheds_summary <- amenities_walksheds |>
+  drop_na() |>
+  st_drop_geometry() |>
+  group_by(GeoUID,
+           Type,
+           Category) |>
+  summarize(n = n(),
+            .groups = "drop") |>
+  pivot_wider(id_cols = c(GeoUID, Type),
+              names_from = Category,
+              values_from = n,
+              values_fill = 0)
+```
+
+
+To map accessibility by category of amenity we first categorize the number of amenities:
+```{r}
+amentities_da <-  urban_hammer_da |>
+  select(GeoUID, Type.1) |>
+  rename(Type = Type.1) |>
+  left_join(amenities_walksheds_summary,
+            by = c("GeoUID", "Type")) |>
+  mutate(across(Sustenance:Library, ~ replace_na(.x, 0))) |>
+  pivot_longer(cols = -c(GeoUID, Type, geometry),
+               names_to = "Amenity_Category",
+               values_to = "Number_of_Amenities") |>
+  #mutate(Number_of_Amenities = ifelse(Number_of_Amenities == 0, NA, Number_of_Amenities)) |>
+  mutate(Number_of_Amenities = case_when(Number_of_Amenities == 0 ~ "0",
+                                         Number_of_Amenities > 0 & Number_of_Amenities <= 3 ~ "1-3",
+                                         Number_of_Amenities > 3 & Number_of_Amenities <= 6 ~ "4-6",
+                                         Number_of_Amenities > 6 & Number_of_Amenities <= 9 ~ "7-9",
+                                         Number_of_Amenities > 9 ~ "10 or more"),
+         Number_of_Amenities = factor(Number_of_Amenities,
+                                      levels = c("0", "1-3", "4-6", "7-9", "10 or more"),
+                                      ordered = TRUE))
+```
+
+
+Plot:
+```{r}
+amentities_da |>
+  ggplot() +
+  geom_sf(aes(fill = Number_of_Amenities)) +
+  geom_sf(data = urban_types |>
+            filter(Type != "Rural"),
+          aes(color = Type),
+          fill = NA) +
+  #scale_fill_fermenter(direction = 1, palette = "Greens") +
+  facet_wrap(~ Amenity_Category) + 
+  theme_void()
+```
+
+Pivot wider:
+```{r}
+junk <- amentities_da |>
+  pivot_wider(names_from = "Amenity_Category",
+              values_from = "Number_of_Amenities")
+```
+
+
+```{r}
+junk2 <- d |>
+  left_join(junk |>
+              #select(-Type) |>
+              st_drop_geometry(),
+            by = c("GeoUID", "Type")) |>
+  mutate(across(Sustenance:Library, ~forcats::fct_drop(.x)))
+```
+
+```{r}
+summary(junk2 |> select(Sustenance:Library))
+```
+
+
+## Clusters: try self-organizing maps (SOM)
+
+```{r}
+wsn.som <- trainSOM(x.data = walksheds_net_attributes |>
+                       select(-c(GeoUID, Type)),
+                     dimension = c(5,5), 
+                     verbose = TRUE, 
+                     nb.save = 5, 
+                     topo = "hexagonal")
+```
+
+```{r}
+wsn.som
+```
+
+
+```{r}
+plot(wsn.som, what="energy")
+```
+
+
+```{r}
+wsn.som$clustering
+```
+
+```{r}
+wsn.som$clustering |> table()
+```
+
+```{r}
+plot(wsn.som, what="obs", type="hitmap")
+```
+
+```{r}
+summary(wsn.som)
+```
+
+```{r}
+par(mfrow = c(2,2))
+plot(wsn.som, what = "obs", type = "color", variable = 1)
+plot(wsn.som, what = "obs", type = "color", variable = 2)
+```
+
+```{r}
+plot(wsn.som, what = "add", type = "pie", variable = walksheds_net_attributes$Type) +
+  scale_fill_brewer(type = "qual") + 
+  guides(fill = guide_legend(title = "Type"))
+```
+
+
+```{r}
+quality(wsn.som)
+```
+
+
+```{r}
+plot(superClass(wsn.som))
+```
+
+
+```{r}
+wsn.som <- trainSOM(x.data = walksheds_net_attributes |>
+                       select(-c(GeoUID, Type)),
+                     dimension = c(4, 4), #2,3
+                     verbose = TRUE, 
+                     nb.save = 5,
+                     topo = "square")
+```
+
+```{r}
+plot(wsn.som, what="energy")
+```
+
+```{r}
+quality(wsn.som)
+```
+
+
+
+
+

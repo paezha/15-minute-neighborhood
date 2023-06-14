@@ -1,0 +1,41 @@
+---
+output: github_document
+bibliography: [fifteen-minute-neighborhoods/bibliography.bib]
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Reality or wishful thinking: Examining the feasibility of 15-minute neighborhoods from the perspective of network attributes
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+- Antonio Paez, School of Earth, Environment and Society, McMaster University  
+- Belén Martín Ramos, ETSI de Montes, Forestal y del Medio Natural, Universidad Politécnica de Madrid  
+- Josh Arbess, Mechanical Engineering and Society, McMaster University  
+- James R. Dunn, Department of Health, Aging and Society, McMaster University  
+
+## Extended Abstract
+
+Walking has been the primary form of personal transportation for as long as humans have been humans. From prehistoric migration to the dawn of populated settlements, the space-time constraints of walking have fundamentally determined how far interactions with the environment and other humans were feasible. It took tens of thousands of years for humans to walk out from their original African niche to eventually settle every nook of the planet.
+     
+  The advent of permanent settlements imposed stronger space-time constraints on people’s movement than had hitherto been the case. Having to return to a fixed abode or to go to a designated place to drudge or trade meant that people become more local of necessity. Despite the invention of the wheel and the use of animal power for transportation purposes, humanity remained for the most part pedestrian for millennia [@roberts1998short]. The physical effort involved in walking limited the geographical extent of settlements and in turn settlements evolved to facilitate walking. 
+    
+  The dominance of travel by foot faded within the span of a few short decades. Several revolutions contributed to this. Technological innovations in the 19th and 20th centuries led to the internal combustion engine, smooth paving surfaces, and systems to move fuel. Concurrently, socio-technological innovations (e.g., Fordism) created the basis for mass production and consumption. The pioneer in this respect was of course the auto industry; many decades later, whole economic systems are still dominated by this sector (Jane Jacobs famously quipped that “[t]he purpose of life is to produce and consume automobiles.”) Early in the automotive era cars were seen as an ideal solution to many urban ills [@brown2009planning], which contributes to explain their enthusiastic reception. In the second part of the 20th century, motorized mobility rose to become the dominant form of transportation in cities and regions around the world. The automobile replaced walking as the key determinant of how far settlements could grow, and cities grew to accommodate this form of transportation, often with unfortunate single-mindedness.
+    
+  The results of this process have been calamitous.
+  
+  Reliance on motorized mobility contributes to pollution, climate change, the erosion of social capital and sense of community, road fatalities, and poor health due to sedentary lifestyles. For years now, work has aimed to grow a consensus about the importance of communities that better serve all their residents, and not only their vehicles. The 15-minute neighborhood [15MN; @pozoukidou2021fifteen] is among a handful of ideas that strive to emphasize movement at a human scale, in environments that accommodate a wide range of capabilities throughout the lifespan, and with the aim of improving livability and health in ways that automobility can no longer promise, let alone deliver.
+  
+  A challenge faced by 15MNs is the legacy of decades of auto-centric planning. Streetscapes are key parts of the hardware of cities, not only for what is evident at surface level (e.g., sidewalks, pavements), but also due to other accessory yet hidden infrastructure, both physical (e.g., water, sewage, power) and social (e.g., property rights, right of ways). Suburban developments in North America are often implicitly or explicitly designed to discourage through traffic. This is done by creating predominantly single use landscapes with meandering, poorly connected roads. Alas, this form of development cuts both ways, since the high built-in cost of navigation does not discriminate between outsiders and residents.
+  
+  A relevant concern is identifying types of streetscapes that can plausibly support 15MNs. To address this question, we investigate the current accessibility situation in parts of Canada’s largest metropolitan region. The analysis consists of two parts, with positive and normative aspects. 15-minute walking neighborhoods are studied, and their accessibility levels assessed (positive analysis). Maximal opportunity landscapes are then used to simulate equivalent opportunity landscapes throughout the region. Accessibility is then reanalyzed from the normative perspective of the provision of opportunities. The results of this analysis are finally correlated to neighborhood network attributes, including connectivity, centrality, and clustering. The results of this investigation provide valuable information about neighborhoods, their morphology and potential to support the aspirational goal of providing opportunities within 15-minute walks for their residents. This information can help to identify target neighborhoods for planning interventions, as well as neighborhoods for whom the 15-minute ideal could be little more than wishful thinking.
+
+## References

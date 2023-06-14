@@ -1,0 +1,131 @@
+---
+title: "Network-Preprocessing"
+author: "Antonio Paez"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this document I aim to partition the network based on walksheds.
+
+# Preliminaries
+
+Load packages:
+```{r}
+#library(disk.frame) # Larger-than-RAM Disk-Based Data Manipulation Framework
+library(dplyr) # A Grammar of Data Manipulation
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(igraph)
+#library(h3) # R Bindings for H3
+#ibrary(osmdata)
+#library(purrr) # Functional Programming Tools
+#library(r5r) # Rapid Realistic Routing with 'R5'
+library(sf) # Simple Features for R
+library(sfnetworks)
+library(tidyr)
+#library(skimr) # Compact and Flexible Summaries of Data
+#library(units)
+#library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
+```
+
+```{r}
+load(file = "hamilton_net.rda")
+load(file = "urban_hammer_da.rda")
+load(file = "walksheds.rda")
+```
+
+Extract the edges of the network:
+```{r}
+hamilton_edges <- hamilton_net$edges
+```
+
+Calculate network attributes by walkshed:
+```{r}
+# Time algorithm
+start.time <- Sys.time()
+
+# Initialize data frame
+walksheds_net_attributes <- data.frame(GeoUID = walksheds$GeoUID,
+                                       n_nodes = numeric(889), 
+                                       transitivity = numeric(889),
+                                       motifs = numeric(889),
+                                       n_edges = numeric(889),
+                                       diameter = numeric(889), 
+                                       radius = numeric(889),
+                                       girth = numeric(889), 
+                                       global_efficiency = numeric(889),
+                                       edge_density = numeric(889),
+                                       edge_connectivity = numeric(889),
+                                       mean_distance = numeric(889),
+                                       min_cut = numeric(889))
+
+for(i in 1:nrow(walksheds)){
+  wsnet <- st_intersection(hamilton_edges, 
+                           walksheds[i,]) |> 
+    st_cast(to = "LINESTRING")
+  wsnet <- as_sfnetwork(wsnet)
+  E(wsnet)$weight <- E(wsnet)$length
+  walksheds_net_attributes$n_nodes[i] <- gorder(wsnet)
+  walksheds_net_attributes$transitivity[i] <- transitivity(wsnet)
+  walksheds_net_attributes$motifs[i] <- count_motifs(wsnet)
+  walksheds_net_attributes$n_edges[i] <- gsize(wsnet)
+  walksheds_net_attributes$diameter[i] <- diameter(wsnet)
+  walksheds_net_attributes$radius[i] <- radius(wsnet)
+  walksheds_net_attributes$girth[i] <- girth(wsnet)$girth
+  walksheds_net_attributes$global_efficiency[i] <- global_efficiency(wsnet)
+  walksheds_net_attributes$edge_density[i] <- edge_density(wsnet)
+  walksheds_net_attributes$edge_connectivity[i] <- edge_connectivity(wsnet)
+  walksheds_net_attributes$mean_distance[i] <- mean_distance(wsnet)
+  walksheds_net_attributes$min_cut[i] <- min_cut(wsnet)
+  print(i)
+}
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+```
+
+Join the type of urban fabric:
+```{r}
+walksheds_net_attributes <- walksheds_net_attributes |>
+  mutate(Type = walksheds$Type) |>
+  select(GeoUID, Type, n_nodes:min_cut)
+```
+
+Save the data object:
+```{r}
+save(walksheds_net_attributes, file = "walksheds_net_attributes.rda", compress = "xz")
+```
+
+
+```{r}
+walksheds_net_attributes |>
+  group_by(Type) |>
+  skim()
+```
+
+Edge connectivity is not super useful: there is little variation - it is a measure of network vulnerability, minimum number of edges to remove to disconnect two nodes (there is no longer a path between them.)
+
+Transitivity: it is the probability that the neighbors of a node are neighbors between them. In a Manhattan-style grid this number will be low because there will be lots and lots of squares.
+
+Motifs (calculated for size 3): It indicates the presence of particular subgraphs that repeat themselves. In other words, a graph with a large number of motifs will tend to have few unique elements (some elements happen again, again, and again). A graph with many unique elements will have few motifs (repetitive patterns).
+
+
+
+Motfis (from igraph help pages)
+```{r}
+g <- sample_pa(100)
+motifs(g, 3)
+count_motifs(g, 3)
+sample_motifs(g, 3)
+
+```
+
+```{r}
+pattern <- graph.full(3)
+my.graph <- grg.game(100, 0.2) 
+```
+

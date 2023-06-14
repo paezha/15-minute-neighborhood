@@ -1,0 +1,254 @@
+---
+title: "Network-Preprocessing"
+author: "Antonio Paez"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this document I collect and preprocess the OSM data with amenities.
+
+# Preliminaries
+
+Load packages:
+```{r}
+library(dplyr) # A Grammar of Data Manipulation
+library(forcats) # Tools for Working with Categorical Variables (Factors)
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(h3) # R Bindings for H3
+library(osmdata) # Import 'OpenStreetMap' Data as Simple Features or Spatial Objects
+library(purrr) # Functional Programming Tools
+library(sf) # Simple Features for R
+library(tidyr) # Tidy Messy Data
+library(units) # Measurement Units for R Vectors
+library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
+```
+
+Load data objects from package {vaccHamilton}. Urban types is the way the City of Hamilton classifies different parts of the city as "Urban", "Suburban", and "Rural":
+```{r}
+data("urban_types")
+#data("data_da_2016")
+```
+
+Use only urban and suburban Hamilton:
+```{r}
+urban_hammer <- urban_types |>
+  filter(Type != "Rural")
+```
+
+# Obtain amenities
+
+Set the bounding box to the extent of urban/suburban Hamilton:
+```{r}
+b <- st_bbox(urban_hammer |>
+               st_transform(crs = 4326))
+```
+
+Initialize the query:
+```{r}
+amenities <- opq(bbox = b) |>
+  add_osm_feature(key = "amenity") |>
+  osmdata_sf()
+```
+
+The number of amenities retrieved is:
+```{r}
+nrow(amenities$osm_points)
+```
+
+See OSM documentation for relevant amenities: https://wiki.openstreetmap.org/wiki/Key:amenity
+
+```{r}
+summary(factor(amenities$osm_points$amenity))
+```
+Notice the large number of NAs.
+
+Refine search by segmenting the categories of amenities.
+
+Sustenance:
+```{r}
+sustenance <- opq(bbox = b) |>
+  add_osm_features(c("\"amenity\"=\"bar\"",
+                     "\"amenity\"=\"biergarten\"",
+                     "\"amenity\"=\"cafe\"",
+                     "\"amenity\"=\"fast_food\"",
+                     "\"amenity\"=\"food_court\"",
+                     "\"amenity\"=\"ice_cream\"",
+                     "\"amenity\"=\"pub\"",
+                     "\"amenity\"=\"restaurant\"")) |>
+  osmdata_sf()
+```
+
+Check the output:
+```{r}
+summary(factor(sustenance$osm_points$amenity))
+```
+
+Extract the points and add a column with the category "Sustenance":
+```{r}
+sustenance_points <- sustenance$osm_points |>
+  mutate(Category = "Sustenance")
+```
+
+
+Education:
+```{r}
+education <- opq(bbox = b) |>
+  add_osm_features(c("\"amenity\"=\"library\"",
+                     "\"amenity\"=\"school\"")) |>
+  osmdata_sf()
+```
+
+Check the output:
+```{r}
+summary(factor(education$osm_points$amenity))
+```
+
+We don't like this...what is 1,938 NAs in schools and libraries? Libraries is a reasonable number (there are about 22 public libraries, and some are rural). For this reason extract only libraries.
+
+Extract the points, remove the schools and NAs and add a column with the category "Library":
+```{r}
+library_points <- education$osm_points |>
+  filter(amenity == "library") |>
+  mutate(Category = "Library")
+```
+
+Financial:
+```{r}
+financial <- opq(bbox = b) |>
+  add_osm_features(c("\"amenity\"=\"atm\"",
+                     "\"amenity\"=\"bank\"",
+                     "\"amenity\"=\"bureau_de_change\"")) |>
+  osmdata_sf()
+```
+
+Check the output:
+```{r}
+summary(factor(financial$osm_points$amenity))
+```
+
+Possibly 200+ banks and atms not labeled?
+
+Extract the points and add a column with the category "Library":
+```{r}
+financial_points <- education$osm_points |>
+  mutate(Category = "Financial")
+```
+
+Health services:
+```{r}
+healthcare <- opq(bbox = b) |>
+  add_osm_features(c("\"amenity\"=\"clinic\"",
+                     "\"amenity\"=\"dentist\"",
+                     "\"amenity\"=\"doctors\"",
+                     "\"amenity\"=\"pharmacy\"")) |>
+  osmdata_sf()
+```
+
+
+Check the output:
+```{r}
+summary(factor(healthcare$osm_points$amenity))
+```
+
+Extract the points and add a column with the category "Library":
+```{r}
+healthcare_points <- healthcare$osm_points |>
+  mutate(Category = "Healthcare")
+```
+
+Bind all amenity categories as points:
+```{r}
+amenities_points <- rbind(sustenance_points |>
+                            select(osm_id, name, amenity, Category),
+                          library_points |>
+                            select(osm_id, name, amenity, Category),
+                          financial_points |>
+                            select(osm_id, name, amenity, Category),
+                          healthcare_points |>
+                            select(osm_id, name, amenity, Category))
+```
+
+Plot:
+```{r}
+ggplot() +
+  geom_sf(data = urban_types,
+          aes(fill = Type)) +
+  geom_sf(data = amenities_points,
+          aes(color = Category))
+```
+
+Obtain the coordinates of the points:
+```{r}
+amenities_coords <- amenities_points |>
+  st_coordinates()
+
+amenities_points <- amenities_points |>
+  mutate(lon = amenities_coords[,1], lat = amenities_coords[,2])
+```
+
+Use the coordinates to obtain the h3 indices at level 13:
+```{r}
+amenities_points <- amenities_points |>
+  mutate(h3_index = geo_to_h3(st_coordinates(geometry),
+                              13))
+```
+
+Save the data objects:
+```{r}
+save(sustenance, file = "sustenance.rda", compress = "xz")
+save(education, file = "education.rda", compress = "xz")
+save(financial, file = "financial.rda", compress = "xz")
+save(healthcare, file = "healthcare.rda", compress = "xz")
+save(amenities_points, file = "amenities_points.rda", compress = "xz")
+```
+
+Append type of urban fabric to amenities:
+```{r}
+amenities_by_type <- amenities_points |>
+  select(Category) |>
+  st_transform(crs = st_crs(urban_types)) |>
+  st_intersection(urban_types)
+```
+
+Summarize number of amenities by category by urban type:
+```{r}
+amenities_by_type <- amenities_by_type |>
+  st_drop_geometry() |>
+  group_by(Type) |>
+  group_map(~table(.x$Category))
+
+amenities_by_type
+```
+
+Notice how the number of amenities is lowest for "Rural" but this is because our search did not include all of rural Hamilton. Still, there is a difference between suburban and urban Hamilton, with urban Hamilton counting more amenties of almost every category. This is despite the difference in areas between the two regions: suburban Hamilton covers considerably more area than urban Hamilton.
+```{r}
+area_by_type <- urban_hammer |>
+  mutate(area = st_area(geometry) |>
+           units::set_units(km2))
+
+area_by_type
+```
+
+What is the density of amenities in each of these two urban fabrics?
+```{r}
+suburban_density <- amenities_by_type[[2]]/drop_units(area_by_type$area[1])
+urban_density <- amenities_by_type[[3]]/drop_units(area_by_type$area[2])
+
+data.frame(suburban = suburban_density,
+           urban = urban_density) |>
+  mutate(ratio = urban.Freq/suburban.Freq) |>
+  transmute(Category = suburban.Var1, 
+            suburban_density = set_units(suburban.Freq, 1/km2), 
+            urban_density = set_units(urban.Freq, 1/km2), 
+            ratio)
+```
+
+
+
+
+
+

@@ -1,0 +1,230 @@
+% !TeX program = pdfLaTeX
+\documentclass[smallextended]{svjour3}       % onecolumn (second format)
+%\documentclass[twocolumn]{svjour3}          % twocolumn
+%
+\smartqed  % flush right qed marks, e.g. at end of proof
+%
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}
+
+\usepackage[hyphens]{url} % not crucial - just used below for the URL
+\usepackage{hyperref}
+
+%
+% \usepackage{mathptmx}      % use Times fonts if available on your TeX system
+%
+% insert here the call for the packages your document requires
+%\usepackage{latexsym}
+% etc.
+%
+% please place your own definitions here and don't use \def but
+% \newcommand{}{}
+%
+% Insert the name of "your journal" with
+% \journalname{myjournal}
+%
+
+%% load any required packages here
+
+
+
+% tightlist command for lists without linebreak
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+% Pandoc citation processing
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newlength{\cslentryspacingunit} % times entry-spacing
+\setlength{\cslentryspacingunit}{\parskip}
+% for Pandoc 2.8 to 2.10.1
+\newenvironment{cslreferences}%
+  {}%
+  {\par}
+% For Pandoc 2.11+
+\newenvironment{CSLReferences}[2] % #1 hanging-ident, #2 entry spacing
+ {% don't indent paragraphs
+  \setlength{\parindent}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+  \let\oldpar\par
+  \def\par{\hangindent=\cslhangindent\oldpar}
+  \fi
+  % set entry spacing
+  \setlength{\parskip}{#2\cslentryspacingunit}
+ }%
+ {}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{#1\hfill\break}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{#1}\break}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+
+\begin{document}
+
+
+\title{Reality or wishful thinking: Examining the feasibility of
+15-minute neighborhoods from the perspective of network
+attributes \thanks{This project was supported by a McMaster Institute
+for Research on Aging Catalyst Grant.} }
+
+
+    \titlerunning{Examinining fifteen minute neighborhoods from the
+perspective of network attributes}
+
+\author{  Antonio Paez \and  James R. Dunn \and  Josh Arbess \and  }
+
+
+\institute{
+        Antonio Paez \at
+     School of Earth, Environment and Society, McMaster University \\
+     \email{\href{mailto:paezha@mcmaster.ca}{\nolinkurl{paezha@mcmaster.ca}}}  %  \\
+%             \emph{Present address:} of F. Author  %  if needed
+    \and
+        James R. Dunn \at
+     Department of Health, Aging and Society, McMaster University \\
+     \email{\href{mailto:jim.dunn@mcmaster.ca}{\nolinkurl{jim.dunn@mcmaster.ca}}}  %  \\
+%             \emph{Present address:} of F. Author  %  if needed
+    \and
+        Josh Arbess \at
+     Mechanical Engineering and Society, McMaster University \\
+     \email{\href{mailto:arbessj@mcmaster.ca}{\nolinkurl{arbessj@mcmaster.ca}}}  %  \\
+%             \emph{Present address:} of F. Author  %  if needed
+    \and
+    }
+
+\date{Received: date / Accepted: date}
+% The correct dates will be entered by the editor
+
+
+\maketitle
+
+\begin{abstract}
+Walking has been the primary form of personal transportation for as long
+as humans have been humans. From prehistoric migration to the dawn of
+populated settlements, the space-time constraints of walking have
+fundamentally determined how far interactions with the environment and
+other humans were feasible. It took tens of thousands of years for
+humans to walk out from their original African niche to eventually
+settle every nook of the planet.
+
+The advent of permanent settlements imposed stronger space-time
+constraints on people's movement than had hitherto been the case. The
+need to return to a fixed abode or to go to a designated place to drudge
+or trade meant that people become more local of necessity. Despite the
+invention of the wheel and the use of animal power for transportation
+purposes, humanity remained for the most part pedestrian for millennia
+(Roberts 1998). The physical effort involved in walking limited the
+geographical extent of settlements and in turn settlements evolved to
+facilitate walking.
+
+The dominance of travel by foot faded within the span of a few decades.
+Several revolutions contributed to this. Technological innovations in
+the 19th and 20th centuries led to the internal combustion engine,
+smooth paving surfaces, and systems to transport. Concurrently,
+socio-technological innovations (e.g., Fordism) created the basis for
+mass production and consumption. The pioneer in this respect was of
+course the auto industry; many decades later, whole economic systems are
+still dominated by this sector (Jane Jacobs famously quipped that
+``{[}t{]}he purpose of life is to produce and consume automobiles.'')
+Early in the automotive era cars were seen as an ideal solution to many
+urban ills (Brown, Morris, and Taylor 2009), which contributes to
+explain their enthusiastic reception. In the second part of the 20th
+century, motorized mobility rose to become the dominant form of
+transportation in cities and regions around the world. The automobile
+replaced walking as the key determinant of how far settlements could
+grow, and cities grew to accommodate this form of transportation, often
+with unfortunate single-mindedness.
+
+The results of this process have been calamitous.
+
+Reliance on motorized mobility contributes to pollution, climate change,
+the erosion of social capital and sense of community, road fatalities,
+and poor health due to sedentary lifestyles. For years now, work has
+aimed to grow a consensus about the importance of communities that
+better serve all their residents, and not only their vehicles. The
+15-minute neighborhood {[}15MN; Pozoukidou and Chatziyiannaki (2021){]}
+is among a handful of ideas that strive to emphasize movement at a human
+scale, in environments that accommodate a wide range of capabilities
+throughout the lifespan, with the aim of improving livability and health
+in ways that automobility can no longer promise, let alone deliver.
+
+A challenge faced by 15MNs is the legacy of decades of auto-centric
+planning. Streetscapes are key parts of the hardware of cities, not only
+for what is evident at surface level (e.g., sidewalks, pavements), but
+also due to other accessory but hidden infrastructure, both physical
+(e.g., water, sewage, power) and social (e.g., property rights, right of
+ways). Suburban developments in North America are often implicitly or
+explicitly designed to discourage through-traffic. This is done by
+creating predominantly single use landscapes with meandering, poorly
+connected roads. Alas, this form of development cuts both ways, since
+the high built-in cost of navigation does not discriminate between
+outsiders and residents.
+
+A relevant question concerns the kinds of streetscapes that can support
+15MNs. To address this question, we investigate the current
+accessibility situation in parts of Canada's major metropolitan region.
+The analysis consists of two parts, with positive and normative
+characters. 15-minute walking neighborhoods are studied, and their
+accessibility levels assessed (positive analysis). Optimal opportunity
+landscapes are then used to simulate equivalent opportunity landscapes
+throughout the region. Accessibility is then reanalyzed from the
+normative perspective of the provision of opportunities. The results of
+this analysis are finally correlated to neighborhood network attributes,
+including connectivity, centrality, and clustering. The results of this
+investigation provide valuable information about neighborhoods, their
+morphology and potential to support the aspirational goal of providing
+opportunities within 15-minute walks for their residents. This
+information can help to identify target neighborhoods for planning
+interventions, as well as neighborhoods for whom the 15-minute ideal
+could be little more than wishful thinking.
+\\
+\keywords{
+        Walking \and
+        Accessibility \and
+        15-minute neighborhood \and
+    }
+
+
+\end{abstract}
+
+
+\def\spacingset#1{\renewcommand{\baselinestretch}%
+{#1}\small\normalsize} \spacingset{1}
+
+
+\hypertarget{references}{%
+\subsection*{References}\label{references}}
+\addcontentsline{toc}{subsection}{References}
+
+\hypertarget{refs}{}
+\begin{CSLReferences}{1}{0}
+\leavevmode\vadjust pre{\hypertarget{ref-brown2009planning}{}}%
+Brown, J. R., E. A. Morris, and B. D. Taylor. 2009. {``Planning for Cars
+in Cities: Planners, Engineers, and Freeways in the 20th Century.''}
+Journal Article. \emph{Journal of the American Planning Association} 75
+(2): 161--77. \url{https://doi.org/10.1080/01944360802640016}.
+
+\leavevmode\vadjust pre{\hypertarget{ref-pozoukidou2021fifteen}{}}%
+Pozoukidou, Georgia, and Zoi Chatziyiannaki. 2021. {``15-Minute City:
+Decomposing the New Urban Planning Eutopia.''} Journal Article.
+\emph{Sustainability} 13 (2): 928.
+\url{https://doi.org/10.3390/su13020928}.
+
+\leavevmode\vadjust pre{\hypertarget{ref-roberts1998short}{}}%
+Roberts, Ian. 1998. {``A Short History of Walking.''} Journal Article.
+\emph{Nature Medicine} 4 (3): 263--64.
+\url{https://doi.org/10.1038/nm0398-263}.
+
+\end{CSLReferences}
+
+
+\bibliographystyle{spphys}
+\bibliography{bibliography.bib}
+
+
+\end{document}
