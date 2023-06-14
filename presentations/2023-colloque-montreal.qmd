@@ -1,7 +1,7 @@
 ---
 title: |
     | Profiling 
-    | the 15-min *ped shed* 
+    | the 15-min *pedshed* 
     | from the perspective of 
     | network attributes
 author: "**Antonio Páez**, Belén Martín, Josh Arbess, James R. Dunn"
@@ -55,37 +55,39 @@ d <- walksheds_net_attributes |>
 
 ##
 
-- A form of chronourbanism that emphasizes movement at a human scale;
-- in environments that accommodate a wide range of capabilities throughout the lifespan;
-- and with the aim of improving livability and health.
+The 15-min neighborhood^[Sometimes mislabeled as the 15-min city.].
+
+- A form of chronourbanism that emphasizes movement at a human scale...
+- ...in environments that accommodate a wide range of capabilities throughout the lifespan...
+- ...with the aim of improving livability and health.
 
 ## 
 
-The 15-min neighborhood^[Sometimes mislabeled as the 15-min city.] is powered by:
+The 15-min neighborhood is powered by:
 
 ::: {.r-fit-text style="margin-top: 50px; font-size: 3em; color: black;"}
-The 15-min ped shed
+The 15-min pedshed
 :::
 
 A pedestrian shed $\equiv$ a 15-min isochrone.
 
 ## 
 
-When combined with the environment, the 15-min ped shed is:
+When combined with the environment, the 15-min pedshed is:
 
 1. A normative...
 2. ...cumulative opportunities...
 3. ...accessibility index.
 
 $$
-A_i = \sum_{j \in \text{15-min ped shed}} O_j
+A_i = \sum_{j \in \text{15-min pedshed}} O_j
 $$
 
-Keeping the environment constant, bigger ped sheds result in higher accessibility.
+Keeping the environment constant, bigger pedsheds result in higher accessibility.
 
 ## 
 
-The maximum ped shed area^[For a given walking speed] would be in a homogeneous, isotropic surface (i.e., a featureless plain)
+The maximum pedshed area^[For a given walking speed] would be in a homogeneous, isotropic surface (i.e., a featureless plain).
 
 ![](plain-978359-pxhere.com.jpg){.absolute top=150 left=200 height="450"}
 
@@ -96,7 +98,7 @@ image source: https://pxhere.com/en/photo/978359
 
 ##
 
-Streetscapes limit where movement can happen, which inevitably leads to smaller ped sheds. 
+Streetscapes limit where movement can happen, which inevitably leads to smaller pedsheds. 
 
 ## 
 
@@ -113,7 +115,7 @@ image source: suburban streetscape https://pxhere.com/en/photo/603627
 
 # Research questions
 
-How much do 15-min ped sheds vary in a typical Canadian city (Hamilton)?
+How much do 15-min pedsheds vary in a typical Canadian city (Hamilton)?
 
 What are their characteristics?
 
@@ -121,7 +123,7 @@ What are their characteristics?
 
 ## 
 
-Open source data
+Open source data.
 
 - Street network (OSM).
 - Amenities (OSM).
@@ -148,7 +150,7 @@ ggplot() +
 
 ## 
 
-Open source software (`R`)
+Open source software (`R`).
 
 - Data collection and processing.
 - Routing.
@@ -157,15 +159,15 @@ Open source software (`R`)
 
 ##
 
-Open, reproducible research
+Open, reproducible research.
 
 [https://github.com/paezha/15-minute-neighborhood](https://github.com/paezha/15-minute-neighborhood)
 
-# Ped sheds
+# pedsheds
 
 ##
 
-Ped sheds calculated from zonal centroids using [`r5r`](https://ipeagit.github.io/r5r/) assuming a walking speed of 3.6 $km/h$.
+pedsheds calculated from zonal centroids using [`r5r`](https://ipeagit.github.io/r5r/) assuming a walking speed of 3.6 $km/h$.
 
 ```{r example-of-network}
 #| echo: false
@@ -196,14 +198,18 @@ ggplot() +
   geom_sf(data = sample_da_coords,
           color = "#619CFF",
           size = 3) +
+  geom_sf(data = sample_da_coords |>
+            st_buffer(dist = 900),
+          fill = NA,
+          color = "black") +
+  labs(caption = "Blue polygon is DA boundary; blue dot is centroid") +
   annotation_scale() +
-  
   theme_void()
 ```
 
 ## 
 
-Summary of ped shed areas (max. ped shed area is `r round(pi * max_shed_r^2 |> units::set_units(km^2), 2)` $km^2$).
+Summary of pedshed areas (max. pedshed area is `r round(pi * max_shed_r^2 |> units::set_units(km^2), 2)` $km^2$).
 
 Notice the large variability within the city and between suburban and urban Hamilton.
 
@@ -264,7 +270,7 @@ Global descriptors of the network.
 
 ##
 
-Profiling the ped sheds based on their network attributes.
+Profiling the pedsheds based on their network attributes.
 
 ```{r train-classification-tree}
 #| echo: false
@@ -408,11 +414,11 @@ leaf_4_plot <- st_intersection(hamilton_net$edges,
 leaf_2_plot + plot_spacer() + leaf_4_plot
 ```
 
-# Network attributes of ped sheds
+# Network attributes of pedsheds
 
 ## 
 
-Re-examining the areas of the ped sheds.
+Re-examining the areas of the pedsheds.
 
 ```{r add-classification-to-data}
 #| include: false
@@ -456,7 +462,7 @@ d |>
 
 ## 
 
-Ped shed area as a function of network attributes.
+pedshed area as a function of network attributes.
 
 ```{r estimate-model-area}
 #| include: false
@@ -521,17 +527,19 @@ effect_transitivity + effect_motifs
 
 ## Conclusions
 
-- Ped shed area varies greatly within Hamilton.
-- The size of ped sheds varies significantly with the attributes of the network.
+- pedshed area varies greatly within Hamilton.
+- The size of pedsheds varies significantly with the attributes of the network.
 - The effect is non-linear.
-- Results suggest an optimal combination of attributes to maximize ped shed areas.
+- Results suggest an optimal combination of attributes to maximize pedshed areas.
 
 ## Implications
 
-- Typically suburban networks result in relatively small ped sheds.
+- Typically suburban networks result in relatively small pedsheds.
 - Turning suburbs into 15-min neighborhoods may require major transportation infrastructure changes.
 - Alternatively, major increases in density.
+- Very unlikely that the 15-min city will be achieved, but many 15-min neighborhoods may be possible.
 
 ## Future work
 
 - Expand the analysis to include the environment, i.e., the opportunity landscape.
+- Try other cities.

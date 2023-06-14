@@ -11,7 +11,7 @@
   <meta name="generator" content="quarto-1.3.353">
 
   <meta name="author" content="Antonio Páez, Belén Martín, Josh Arbess, James R. Dunn">
-  <title>quarto-input83819e5b</title>
+  <title>quarto-input45290e76</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
@@ -326,7 +326,7 @@
 
 <section id="title-slide" class="quarto-title-block center">
   <h1 class="title"><p>Profiling<br>
-the 15-min <em>ped shed</em><br>
+the 15-min <em>pedshed</em><br>
 from the perspective of<br>
 network attributes</p></h1>
 
@@ -346,36 +346,37 @@ network attributes</p></h1>
 </section>
 <section id="section" class="slide level2">
 <h2></h2>
+<p>The 15-min neighborhood<sup>1</sup>.</p>
 <ul>
-<li>A form of chronourbanism that emphasizes movement at a human scale;</li>
-<li>in environments that accommodate a wide range of capabilities throughout the lifespan;</li>
-<li>and with the aim of improving livability and health.</li>
+<li>A form of chronourbanism that emphasizes movement at a human scale…</li>
+<li>…in environments that accommodate a wide range of capabilities throughout the lifespan…</li>
+<li>…with the aim of improving livability and health.</li>
 </ul>
-</section>
+<aside><ol class="aside-footnotes"><li id="fn1"><p>Sometimes mislabeled as the 15-min city.</p></li></ol></aside></section>
 <section id="section-1" class="slide level2">
 <h2></h2>
-<p>The 15-min neighborhood<sup>1</sup> is powered by:</p>
+<p>The 15-min neighborhood is powered by:</p>
 <div class="r-fit-text" style="margin-top: 50px; font-size: 3em; color: black;">
-<p>The 15-min ped shed</p>
+<p>The 15-min pedshed</p>
 </div>
 <p>A pedestrian shed <span class="math inline">\(\equiv\)</span> a 15-min isochrone.</p>
-<aside><ol class="aside-footnotes"><li id="fn1"><p>Sometimes mislabeled as the 15-min city.</p></li></ol></aside></section>
+</section>
 <section id="section-2" class="slide level2">
 <h2></h2>
-<p>When combined with the environment, the 15-min ped shed is:</p>
+<p>When combined with the environment, the 15-min pedshed is:</p>
 <ol type="1">
 <li>A normative…</li>
 <li>…cumulative opportunities…</li>
 <li>…accessibility index.</li>
 </ol>
 <p><span class="math display">\[
-A_i = \sum_{j \in \text{15-min ped shed}} O_j
+A_i = \sum_{j \in \text{15-min pedshed}} O_j
 \]</span></p>
-<p>Keeping the environment constant, bigger ped sheds result in higher accessibility.</p>
+<p>Keeping the environment constant, bigger pedsheds result in higher accessibility.</p>
 </section>
 <section id="section-3" class="slide level2">
 <h2></h2>
-<p>The maximum ped shed area<sup>1</sup> would be in a homogeneous, isotropic surface (i.e., a featureless plain)</p>
+<p>The maximum pedshed area<sup>1</sup> would be in a homogeneous, isotropic surface (i.e., a featureless plain).</p>
 <p><img data-src="plain-978359-pxhere.com.jpg" class="absolute" style="top: 150px; left: 200px; height: 450px; "></p>
 <aside class="notes">
 <p>image source: https://pxhere.com/en/photo/978359</p>
@@ -393,7 +394,7 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 <aside><ol class="aside-footnotes"><li id="fn2"><p>For a given walking speed</p></li></ol></aside></section>
 <section id="section-4" class="slide level2">
 <h2></h2>
-<p>Streetscapes limit where movement can happen, which inevitably leads to smaller ped sheds.</p>
+<p>Streetscapes limit where movement can happen, which inevitably leads to smaller pedsheds.</p>
 </section>
 <section id="section-5" class="slide level2">
 <h2></h2>
@@ -416,7 +417,7 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 </section></section>
 <section id="research-questions" class="title-slide slide level1 center">
 <h1>Research questions</h1>
-<p>How much do 15-min ped sheds vary in a typical Canadian city (Hamilton)?</p>
+<p>How much do 15-min pedsheds vary in a typical Canadian city (Hamilton)?</p>
 <p>What are their characteristics?</p>
 </section>
 
@@ -427,7 +428,7 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 </section>
 <section id="section-6" class="slide level2">
 <h2></h2>
-<p>Open source data</p>
+<p>Open source data.</p>
 <ul>
 <li>Street network (OSM).</li>
 <li>Amenities (OSM).</li>
@@ -442,7 +443,7 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 <img data-src="2023-colloque-montreal_files/figure-revealjs/study-area-1.png" width="960" class="r-stretch"></section>
 <section id="section-8" class="slide level2">
 <h2></h2>
-<p>Open source software (<code>R</code>)</p>
+<p>Open source software (<code>R</code>).</p>
 <ul>
 <li>Data collection and processing.</li>
 <li>Routing.</li>
@@ -452,22 +453,22 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 </section>
 <section id="section-9" class="slide level2">
 <h2></h2>
-<p>Open, reproducible research</p>
+<p>Open, reproducible research.</p>
 <p><a href="https://github.com/paezha/15-minute-neighborhood">https://github.com/paezha/15-minute-neighborhood</a></p>
 </section></section>
 <section>
-<section id="ped-sheds" class="title-slide slide level1 center">
-<h1>Ped sheds</h1>
+<section id="pedsheds" class="title-slide slide level1 center">
+<h1>pedsheds</h1>
 
 </section>
 <section id="section-10" class="slide level2">
 <h2></h2>
-<p>Ped sheds calculated from zonal centroids using <a href="https://ipeagit.github.io/r5r/"><code>r5r</code></a> assuming a walking speed of 3.6 <span class="math inline">\(km/h\)</span>.</p>
+<p>pedsheds calculated from zonal centroids using <a href="https://ipeagit.github.io/r5r/"><code>r5r</code></a> assuming a walking speed of 3.6 <span class="math inline">\(km/h\)</span>.</p>
 
 <img data-src="2023-colloque-montreal_files/figure-revealjs/example-of-network-1.png" width="960" class="r-stretch"></section>
 <section id="section-11" class="slide level2">
 <h2></h2>
-<p>Summary of ped shed areas (max. ped shed area is 2.54 <span class="math inline">\(km^2\)</span>).</p>
+<p>Summary of pedshed areas (max. pedshed area is 2.54 <span class="math inline">\(km^2\)</span>).</p>
 <p>Notice the large variability within the city and between suburban and urban Hamilton.</p>
 <div class="cell" data-hash="2023-colloque-montreal_cache/revealjs/ped-shed-area-summary_dc699b38d20e00c1f7431f3727d28e2d">
 <div class="cell-output-display">
@@ -1001,7 +1002,7 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 </section>
 <section id="section-13" class="slide level2">
 <h2></h2>
-<p>Profiling the ped sheds based on their network attributes.</p>
+<p>Profiling the pedsheds based on their network attributes.</p>
 
 <img data-src="2023-colloque-montreal_files/figure-revealjs/plot-classification-tree-1.png" width="960" class="r-stretch"></section>
 <section id="section-14" class="slide level2">
@@ -1015,13 +1016,13 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 
 <img data-src="2023-colloque-montreal_files/figure-revealjs/display-urban-networks-1.png" width="960" class="r-stretch"></section></section>
 <section>
-<section id="network-attributes-of-ped-sheds" class="title-slide slide level1 center">
-<h1>Network attributes of ped sheds</h1>
+<section id="network-attributes-of-pedsheds" class="title-slide slide level1 center">
+<h1>Network attributes of pedsheds</h1>
 
 </section>
 <section id="section-16" class="slide level2">
 <h2></h2>
-<p>Re-examining the areas of the ped sheds.</p>
+<p>Re-examining the areas of the pedsheds.</p>
 <div class="cell" data-hash="2023-colloque-montreal_cache/revealjs/area-of-ped-sheds-by-classification_6753d1529c9339206e0c98245426534f">
 <div class="cell-output-display">
 
@@ -1544,7 +1545,7 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 </section>
 <section id="section-17" class="slide level2">
 <h2></h2>
-<p>Ped shed area as a function of network attributes.</p>
+<p>pedshed area as a function of network attributes.</p>
 
 <img data-src="2023-colloque-montreal_files/figure-revealjs/display-model-effects-1.png" width="960" class="r-stretch"></section></section>
 <section>
@@ -1555,24 +1556,26 @@ A_i = \sum_{j \in \text{15-min ped shed}} O_j
 <section id="conclusions" class="slide level2">
 <h2>Conclusions</h2>
 <ul>
-<li>Ped shed area varies greatly within Hamilton.</li>
-<li>The size of ped sheds varies significantly with the attributes of the network.</li>
+<li>pedshed area varies greatly within Hamilton.</li>
+<li>The size of pedsheds varies significantly with the attributes of the network.</li>
 <li>The effect is non-linear.</li>
-<li>Results suggest an optimal combination of attributes to maximize ped shed areas.</li>
+<li>Results suggest an optimal combination of attributes to maximize pedshed areas.</li>
 </ul>
 </section>
 <section id="implications" class="slide level2">
 <h2>Implications</h2>
 <ul>
-<li>Typically suburban networks result in relatively small ped sheds.</li>
+<li>Typically suburban networks result in relatively small pedsheds.</li>
 <li>Turning suburbs into 15-min neighborhoods may require major transportation infrastructure changes.</li>
 <li>Alternatively, major increases in density.</li>
+<li>Very unlikely that the 15-min city will be achieved, but many 15-min neighborhoods may be possible.</li>
 </ul>
 </section>
 <section id="future-work" class="slide level2">
 <h2>Future work</h2>
 <ul>
 <li>Expand the analysis to include the environment, i.e., the opportunity landscape.</li>
+<li>Try other cities.</li>
 </ul>
 <div class="footer footer-default">
 
