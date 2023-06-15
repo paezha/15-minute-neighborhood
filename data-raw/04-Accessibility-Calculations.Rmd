@@ -1,5 +1,5 @@
 ---
-title: "Network-Preprocessing"
+title: "Accessibility Calculations"
 author: "Antonio Paez"
 date: "`r Sys.Date()`"
 output: pdf_document
@@ -9,25 +9,17 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-In this document I aim to partition the network based on walksheds.
+In this document we calculate the amenities at the level of pedshed to get cumulative accessibility scores.
 
 # Preliminaries
 
 Load packages:
-```{r}
-#library(disk.frame) # Larger-than-RAM Disk-Based Data Manipulation Framework
+```{r warning=FALSE, message=FALSE}
 library(dplyr) # A Grammar of Data Manipulation
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
-#library(igraph)
-#library(h3) # R Bindings for H3
-#ibrary(osmdata)
-#library(purrr) # Functional Programming Tools
-#library(r5r) # Rapid Realistic Routing with 'R5'
 library(sf) # Simple Features for R
-#library(sfnetworks)
-library(tidyr)
 library(skimr) # Compact and Flexible Summaries of Data
-#library(units)
+library(tidyr) # Tidy Messy Data
 library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
 ```
 
@@ -41,17 +33,23 @@ load(file = "walksheds.rda")
 
 
 Intersect amenities with walksheds to obtain the cumulative opportunities:
-```{r}
+```{r warning=FALSE}
+# Time algorithm
+start.time <- Sys.time()
+
 amenities_walksheds <- amenities_points |>
   select(amenity, Category) |>
   st_intersection(walksheds)
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
 ```
 
 Save amenities by walkshed:
 ```{r}
 save(amenities_walksheds, file = "amenities_walkshed.rda", compress = "xz")
 ```
-
 
 Summary of amenity categories by DA and Type:
 ```{r}
@@ -279,4 +277,5 @@ ggplot()  +
           #aes(color = Category)
           )
 ```
+
 

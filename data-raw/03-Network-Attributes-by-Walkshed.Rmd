@@ -1,8 +1,8 @@
 ---
-title: "Network-Preprocessing"
+title: "Analysis of Network Attributes"
 author: "Antonio Paez"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: html_notebook
 ---
 
 ```{r setup, include=FALSE}
@@ -14,21 +14,14 @@ In this document I aim to partition the network based on walksheds.
 # Preliminaries
 
 Load packages:
-```{r}
-#library(disk.frame) # Larger-than-RAM Disk-Based Data Manipulation Framework
+```{r warning=FALSE, message=FALSE}
 library(dplyr) # A Grammar of Data Manipulation
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
 library(igraph)
-#library(h3) # R Bindings for H3
-#ibrary(osmdata)
-#library(purrr) # Functional Programming Tools
-#library(r5r) # Rapid Realistic Routing with 'R5'
+library(skimr) # Compact and Flexible Summaries of Data
 library(sf) # Simple Features for R
 library(sfnetworks)
 library(tidyr)
-#library(skimr) # Compact and Flexible Summaries of Data
-#library(units)
-#library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
 ```
 
 ```{r}
@@ -43,7 +36,7 @@ hamilton_edges <- hamilton_net$edges
 ```
 
 Calculate network attributes by walkshed:
-```{r}
+```{r warning=FALSE}
 # Time algorithm
 start.time <- Sys.time()
 
@@ -80,7 +73,6 @@ for(i in 1:nrow(walksheds)){
   walksheds_net_attributes$edge_connectivity[i] <- edge_connectivity(wsnet)
   walksheds_net_attributes$mean_distance[i] <- mean_distance(wsnet)
   walksheds_net_attributes$min_cut[i] <- min_cut(wsnet)
-  print(i)
 }
 
 end.time <- Sys.time()

@@ -1,8 +1,8 @@
 ---
-title: "Profile Walksheds"
+title: "Profiling Walksheds"
 author: "Antonio Paez"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: html_notebook
 ---
 
 ```{r setup, include=FALSE}
@@ -14,7 +14,7 @@ In this document we profile the ped sheds based on their network attributes.
 # Preliminaries
 
 Load packages:
-```{r}
+```{r warning=FALSE, message=FALSE}
 library(dplyr) # A Grammar of Data Manipulation
 library(evtree) # Evolutionary Learning of Globally Optimal Trees
 library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package

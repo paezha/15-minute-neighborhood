@@ -254,6 +254,17 @@ rbind(global |>
 
 # Network attributes
 
+## 
+
+Intersect the network and the pedsheds to extract the subset of the network for each pedshed.
+
+```{r}
+#| echo: false
+
+
+```
+
+
 ## {.smaller .scrollable}
 
 Global descriptors of the network.
