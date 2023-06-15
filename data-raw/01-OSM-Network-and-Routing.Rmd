@@ -1,0 +1,420 @@
+---
+title: "Network and Routing"
+author: "Antonio Paez"
+date: "`r Sys.Date()`"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this document I collect and preprocess the network data for this research.
+
+# Preliminaries
+
+Load packages:
+```{r}
+# Allocate memory for routing
+options(java.parameters = "-Xmx20G")
+
+library(disk.frame) # Larger-than-RAM Disk-Based Data Manipulation Framework
+library(dplyr) # A Grammar of Data Manipulation
+library(ggforce) # Accelerating 'ggplot2'
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(h3) # R Bindings for H3
+library(purrr) # Functional Programming Tools
+library(r5r) # Rapid Realistic Routing with 'R5'
+library(sf) # Simple Features for R
+library(skimr) # Compact and Flexible Summaries of Data
+library(units) # Measurement Units for R Vectors
+library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
+```
+
+Load data objects from package {vaccHamilton}. Urban types is the way the City of Hamilton classifies different parts of the city as "Urban", "Suburban", and "Rural". The second object (`data_da_2016`) includes the geometry of Dissemination Areas and some demographic data for 2016:
+```{r}
+data("urban_types")
+data("data_da_2016")
+```
+
+Use only urban and suburban Hamilton:
+```{r}
+urban_hammer <- urban_types |>
+  filter(Type != "Rural")
+```
+
+Find the DAs that are urban or suburban:
+```{r}
+urban_hammer_da <- data_da_2016 |>
+  st_transform(crs = st_crs(urban_types)) |>
+  st_intersection(urban_hammer)
+```
+
+Plot urban/suburban DAs:
+```{r}
+ggplot() + 
+  geom_sf(data = urban_hammer_da) + 
+  geom_sf(data = urban_hammer,
+          aes(color = Type), 
+          fill = NA, 
+          linewidth = 1)
+```
+
+Notice that some DAs appear twice after intersecting with urban fabric types:
+```{r}
+urban_hammer_da |> 
+  left_join(
+    urban_hammer_da |> 
+      st_drop_geometry() |>
+      group_by(GeoUID) |>
+      summarize(n = n()),
+    by = "GeoUID") |>
+  ggplot() +
+  geom_sf(aes(fill = factor(n)))
+
+```
+
+This is not a problem. In most cases, some DAs will get two walksheds instead of one.
+
+Coordinates of centroids of the DAs that intersect urban/suburban types (in lat-long). These will be the origins of trips, that is, our proxies for "neighborhoods":
+```{r}
+origins <- st_centroid(urban_hammer_da) |>
+  st_transform(crs = st_crs(4326))
+```
+
+# Geohashes
+
+The simplest way to proceed, other than trying to calculate the travel times to every single amenity (and considering that we will at some point simulate the locations of amenities) is to geohash the region of interest. That way, we can count the number of amenities for polygons with precalculated travel times.
+
+Retrieve h3 geohashing at a fairly high resolution to identify Hamilton; the coordinates are for the City of Hamilton:
+```{r}
+urban_hammer_h3 <- geo_to_h3(c(43.2501, -79.8496),
+                             res = 4) |>
+  k_ring(radius = 1)
+```
+
+Plot the geohash retrieved in this way:
+```{r}
+ggplot() + 
+  geom_sf(data = h3_to_geo_boundary_sf(urban_hammer_h3),
+          aes(fill = h3_index)) +
+  geom_sf(data = urban_types,
+          fill = NA)
+```
+
+Keep only the h3 indices that overlap with Hamilton:
+```{r}
+urban_hammer_h3 = c("842b9b7ffffffff", "842b9b5ffffffff", "842ab4bffffffff")
+```
+
+Plot kept indices:
+```{r}
+ggplot() + 
+  geom_sf(data = h3_to_geo_boundary_sf(urban_hammer_h3),
+          aes(fill = h3_index)) +
+  geom_sf(data = urban_types,
+          fill = NA)
+```
+
+Obtain children at a higher resolution:
+```{r}
+urban_hammer_h3 <- urban_hammer_h3 |> 
+  purrr::map(\(x) h3_to_children(x, res = 8)) |>
+  unlist()
+```
+
+Plot current geohashes:
+```{r}
+ggplot() + 
+  geom_sf(data = h3_to_geo_boundary_sf(urban_hammer_h3)) +
+  geom_sf(data = urban_types,
+          fill = NA)
+```
+
+Choose only hexagons that touch urban/suburban Hamilton:
+```{r}
+urban_hammer_h3 <- h3_to_geo_boundary_sf(urban_hammer_h3) |>
+  st_transform(crs = st_crs(urban_types)) |>
+  st_intersection(urban_types |> 
+                    filter(Type != "Rural"))
+
+urban_hammer_h3 <- urban_hammer_h3 |> 
+  pull(h3_index)
+```
+
+Plot:
+```{r}
+ggplot() + 
+  geom_sf(data = h3_to_geo_boundary_sf(urban_hammer_h3)) +
+  geom_sf(data = urban_types,
+          fill = NA)
+```
+
+Currently this is resolution 8:
+```{r}
+h3_get_resolution(urban_hammer_h3)
+```
+
+Obtain children at resolution 13 (average area is 43.87 $m^2$):
+```{r}
+urban_hammer_h3 <- urban_hammer_h3 |> 
+  purrr::map(\(x) h3_to_children(x, res = 13)) |>
+  unlist()
+```
+
+```{r}
+destinations_h3 <- h3_to_geo(urban_hammer_h3)
+```
+
+## Network routing
+
+I used [BBBike](https://download.bbbike.org/osm/bbbike/) to extract OSM data for Hamilton on July 7, 2023. The name of the file is `planet_-80.279,43.048_-79.318,43.459.osm.pbf`. I copied this file to folder `data-raw/r5_graph`.
+
+Set Up R5 Routing. First define the path to where the graph is located:
+```{r set up r5 path, include=FALSE}
+r5_path <- file.path("./r5_graph")
+```
+
+Download and import GTFS (Hamilton transit data)
+```{r eval=FALSE}
+download.file(url = "https://transitfeeds.com/p/hamilton-street-railway/31/latest/download", 
+              destfile = file.path(r5_path, 
+                                   "HSR_transit.zip"), 
+              mode = "wb")
+```
+
+Download and import GTFS (Hamilton transit data)
+```{r eval=FALSE}
+download.file(url = "https://transitfeeds.com/p/burlington-transit/294/latest/download", 
+              destfile = file.path(r5_path, 
+                                   "Burlington_transit.zip"), 
+              mode = "wb")
+```
+
+Build the graph:
+```{r build-graph, include = FALSE}
+r5_hamilton_cma <- setup_r5(data_path = r5_path, 
+                            verbose = FALSE)
+```
+
+Prepare Input Data for `r5r`. The origins are the coordinates of the DAs and the destinations the coordinates of the h3 geohashes:
+```{r prepare-inputs}
+# save origins in format expected by R5R (id, lon, lat)
+origins_i <- data.frame(ID = origins$GeoUID, 
+                        origins |>
+                          st_transform(crs = 4326) |>
+                          st_coordinates()) |>
+  rename(lon = X, lat = Y, id = ID) |>
+  dplyr::select(id, lon, lat)
+
+# now vaccination sites
+destinations_j <- data.frame(id = urban_hammer_h3, 
+                             lat = destinations_h3[,1],
+                             lon = destinations_h3[,2])
+```
+
+Calculate OD Matrix for walking:
+```{r calculate walk od matrix}
+
+# set up batching according to how many origin rows to process at one time
+chunksize = 4000 # larger chunks for walking will give enough origins in each chunk to allow multiprocessing to spin up with R5R
+num_chunks = ceiling(nrow(origins_i)/chunksize)
+
+# create origin-destination pairs
+origins_chunks <- as.disk.frame(origins_i,
+                                outdir = "./df/origins_i",
+                                nchunks = num_chunks,
+                                overwrite = TRUE)
+
+start.time <- Sys.time()
+pb <- txtProgressBar(0, num_chunks, style = 3)
+
+for (i in 1:num_chunks){ 
+  origins_i_chunk <- get_chunk(origins_chunks, i)
+  ttm_chunk <- travel_time_matrix(r5_hamilton_cma,
+                                  origins = origins_i_chunk,
+                                  destinations = destinations_j,
+                                  mode = c("WALK"),
+                                  departure_datetime = as.POSIXct(strptime("2021-04-05 08:00:00", "%Y-%m-%d %H:%M:%S", tz = "EST5EDT")),
+                                  max_walk_time = 15, # minutes
+                                  max_trip_duration = 15)
+  
+  # export output as disk.frame
+  ifelse(i == 1, output_df <- as.disk.frame(ttm_chunk,
+                                            nchunks = 1,
+                                            outdir = "./df/output_ttm_walk",
+                                            compress = 50,
+                                            overwrite = TRUE),
+         add_chunk(output_df, ttm_chunk, chunk_id = i))
+  setTxtProgressBar(pb, i)
+}
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+```
+
+Retrieve network as a simple features object:
+```{r}
+hamilton_net <- street_network_to_sf(r5_hamilton_cma)
+```
+
+Save network as sf:
+```{r}
+save(hamilton_net, file = "hamilton_net.rda", compress = "xz")
+```
+
+## Extract travel time matrix
+
+```{r load od matrix for walk, include=FALSE}
+# connect to the walking travel time matrix disk frame
+ttm_walk.disk.frame <- disk.frame("./df/output_ttm_walk")
+#opportunities_j <- as.data.frame(nyc_cb_point) |> select(GEOID10, total_emp) |> rename(toId = GEOID10, o_j = total_emp)
+```
+
+Convert disk.frame to data frame:
+```{r}
+ttm_walk <- as.data.frame(ttm_walk.disk.frame) |>
+  transmute(GeoUID = from_id, h3_index = to_id, travel_time = travel_time_p50)
+```
+
+## Retrieve h3 geometries of walksheds by origin
+
+Retrieve the h3 areas as multipolygons:
+```{r}
+walksheds <- ttm_walk |> 
+  group_by(GeoUID) |>
+  group_map(~ h3_set_to_multi_polygon(.x$h3_index),
+            .keep = TRUE)
+```
+
+Obtain the GeoUIDs of the walksheds:
+```{r}
+walkshed_GeoUIDs <- ttm_walk |>
+  group_by(GeoUID) |>
+  summarize(GeoUID = first(GeoUID),
+            .groups = "drop")
+```
+
+Convert walksheds with GeoUIDs of DAs to a data frame:
+```{r}
+walksheds <- data.frame(GeoUID = walkshed_GeoUIDs,
+                         geometry = purrr::map_df(walksheds,
+                            tibble::as_tibble)) |>
+  st_as_sf(crs = 4326)
+  
+```
+
+Verify the catchments:
+```{r}
+test_unit = sample.int(nrow(walksheds), 1)
+
+ggplot() +
+  geom_sf(data = data_da_2016 |>
+            filter(GeoUID == walksheds$GeoUID[test_unit]),
+          color = "black",
+          fill= NA) + 
+  geom_sf(data = walksheds[test_unit,],
+          color = "blue",
+          fill = NA,
+          linewidth = 1)
+```
+
+Join the urban type to DAs in the walksheds object:
+```{r}
+walksheds <- walksheds |>
+  left_join(origins |>
+              st_drop_geometry() |>
+              transmute(GeoUID, Type = Type.1),
+            by = "GeoUID")
+```
+
+Convert to factor:
+```{r}
+walksheds <- walksheds |>
+  mutate(Type = factor(Type))
+```
+
+Summarize the walksheds:
+```{r}
+summary(walksheds)
+```
+
+The DAs and the catchments match. Now save the data objects:
+```{r}
+save(urban_hammer_da, file = "urban_hammer_da.rda", compress = "xz")
+save(ttm_walk, file = "ttm_walk.rda", compress = "xz")
+save(walksheds, file = "walksheds.rda", compress = "xz")
+```
+
+Calculate area of walksheds:
+```{r}
+walksheds <- walksheds |>
+  mutate(area = st_area(geometry))
+```
+
+Summarize by urban type:
+```{r}
+walksheds |>
+  st_drop_geometry() |>
+  mutate(area = units::drop_units(area)) |>
+  group_by(Type) |>
+  skim()
+```
+
+```{r}
+walksheds |>
+  st_drop_geometry() |>
+  mutate(area = log(units::drop_units(set_units(area, km2)))) |>
+  lm(area ~ Type, data = _) |>
+  summary()
+```
+
+
+```{r}
+ggplot(data = walksheds |>
+  st_drop_geometry() |>
+  mutate(area = units::drop_units(set_units(area, km2))),
+  aes(x = Type, y = area)) +
+  geom_violin()
+```
+
+Urban walksheds close to the mean:
+```{r}
+walksheds |>
+  st_drop_geometry() |>
+  mutate(area = units::drop_units(area)) |>
+  filter(Type == "Urban", area >= 1372092 * 0.999 & area <= 1372092 * 1.001)
+```
+
+Suburban walksheds close to the mean area of suburban walksheds:
+```{r}
+walksheds |>
+  st_drop_geometry() |>
+  mutate(area = units::drop_units(area)) |>
+  filter(Type == "Suburban", area >= 1100484 * 0.99 & area <= 1100484 * 1.01)
+```
+
+Compare the areas of walksheds using comparable areas:
+```{r}
+mock_areas <- data.frame(Type = c("Suburban",
+                          "Urban"), 
+                 area = c(1100484,
+                          1372092),
+                 x0 = c(0,0),
+                 y0 = c(0,0)) |>
+  mutate(r = sqrt(area/pi))
+```
+
+
+```{r}
+ggplot() +
+  geom_circle(data = mock_areas,
+              aes(x0 = x0,
+                  y0 = y0,
+                  r = r,
+                  color = Type))+
+  coord_equal()
+```
+
+
