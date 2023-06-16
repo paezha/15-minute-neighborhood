@@ -1,5 +1,5 @@
 ---
-title: "Analysis of Network Attributes"
+title: "Network Attributes by Walkshed"
 author: "Antonio Paez"
 date: "`r Sys.Date()`"
 output: html_notebook
@@ -27,7 +27,8 @@ library(tidyr)
 ```{r}
 load(file = "hamilton_net.rda")
 load(file = "urban_hammer_da.rda")
-load(file = "walksheds.rda")
+load(file = "walksheds_da.rda")
+load(file = "walksheds_validation.rda")
 ```
 
 Extract the edges of the network:
@@ -41,38 +42,40 @@ Calculate network attributes by walkshed:
 start.time <- Sys.time()
 
 # Initialize data frame
-walksheds_net_attributes <- data.frame(GeoUID = walksheds$GeoUID,
-                                       n_nodes = numeric(889), 
-                                       transitivity = numeric(889),
-                                       motifs = numeric(889),
-                                       n_edges = numeric(889),
-                                       diameter = numeric(889), 
-                                       radius = numeric(889),
-                                       girth = numeric(889), 
-                                       global_efficiency = numeric(889),
-                                       edge_density = numeric(889),
-                                       edge_connectivity = numeric(889),
-                                       mean_distance = numeric(889),
-                                       min_cut = numeric(889))
+walksheds_da_net_vars <- data.frame(GeoUID = walksheds_da$GeoUID,
+                                       n_nodes = numeric(nrow(walksheds_da)), 
+                                       transitivity = numeric(nrow(walksheds_da)),
+                                       motifs_3 = numeric(nrow(walksheds_da)),
+                                       motifs_4 = numeric(nrow(walksheds_da)),
+                                       n_edges = numeric(nrow(walksheds_da)),
+                                       diameter = numeric(nrow(walksheds_da)), 
+                                       radius = numeric(nrow(walksheds_da)),
+                                       girth = numeric(nrow(walksheds_da)), 
+                                       global_efficiency = numeric(nrow(walksheds_da)),
+                                       edge_density = numeric(nrow(walksheds_da)),
+                                       edge_connectivity = numeric(nrow(walksheds_da)),
+                                       mean_distance = numeric(nrow(walksheds_da)),
+                                       min_cut = numeric(nrow(walksheds_da)))
 
-for(i in 1:nrow(walksheds)){
+for(i in 1:nrow(walksheds_da)){
   wsnet <- st_intersection(hamilton_edges, 
-                           walksheds[i,]) |> 
+                           walksheds_da[i,]) |> 
     st_cast(to = "LINESTRING")
   wsnet <- as_sfnetwork(wsnet)
   E(wsnet)$weight <- E(wsnet)$length
-  walksheds_net_attributes$n_nodes[i] <- gorder(wsnet)
-  walksheds_net_attributes$transitivity[i] <- transitivity(wsnet)
-  walksheds_net_attributes$motifs[i] <- count_motifs(wsnet)
-  walksheds_net_attributes$n_edges[i] <- gsize(wsnet)
-  walksheds_net_attributes$diameter[i] <- diameter(wsnet)
-  walksheds_net_attributes$radius[i] <- radius(wsnet)
-  walksheds_net_attributes$girth[i] <- girth(wsnet)$girth
-  walksheds_net_attributes$global_efficiency[i] <- global_efficiency(wsnet)
-  walksheds_net_attributes$edge_density[i] <- edge_density(wsnet)
-  walksheds_net_attributes$edge_connectivity[i] <- edge_connectivity(wsnet)
-  walksheds_net_attributes$mean_distance[i] <- mean_distance(wsnet)
-  walksheds_net_attributes$min_cut[i] <- min_cut(wsnet)
+  walksheds_da_net_vars$n_nodes[i] <- gorder(wsnet)
+  walksheds_da_net_vars$transitivity[i] <- transitivity(wsnet)
+  walksheds_da_net_vars$motifs_3[i] <- count_motifs(wsnet, size = 3)
+  walksheds_da_net_vars$motifs_4[i] <- count_motifs(wsnet, size = 4)
+  walksheds_da_net_vars$n_edges[i] <- gsize(wsnet)
+  walksheds_da_net_vars$diameter[i] <- diameter(wsnet)
+  walksheds_da_net_vars$radius[i] <- radius(wsnet)
+  walksheds_da_net_vars$girth[i] <- girth(wsnet)$girth
+  walksheds_da_net_vars$global_efficiency[i] <- global_efficiency(wsnet)
+  walksheds_da_net_vars$edge_density[i] <- edge_density(wsnet)
+  walksheds_da_net_vars$edge_connectivity[i] <- edge_connectivity(wsnet)
+  walksheds_da_net_vars$mean_distance[i] <- mean_distance(wsnet)
+  walksheds_da_net_vars$min_cut[i] <- min_cut(wsnet)
 }
 
 end.time <- Sys.time()
@@ -82,19 +85,83 @@ time.taken
 
 Join the type of urban fabric:
 ```{r}
-walksheds_net_attributes <- walksheds_net_attributes |>
-  mutate(Type = walksheds$Type) |>
+walksheds_da_net_vars <- walksheds_da_net_vars |>
+  mutate(Type = walksheds_da$Type) |>
   select(GeoUID, Type, n_nodes:min_cut)
 ```
 
 Save the data object:
 ```{r}
-save(walksheds_net_attributes, file = "walksheds_net_attributes.rda", compress = "xz")
+save(walksheds_da_net_vars, file = "walksheds_da_net_vars.rda", compress = "xz")
 ```
 
+Calculate network attributes by walkshed for the validation set:
+```{r warning=FALSE}
+# Time algorithm
+start.time <- Sys.time()
+
+# Initialize data frame
+walksheds_validation_net_vars <- data.frame(GeoUID = walksheds_validation$GeoUID,
+                                       n_nodes = numeric(nrow(walksheds_validation)), 
+                                       transitivity = numeric(nrow(walksheds_validation)),
+                                       motifs_3 = numeric(nrow(walksheds_validation)),
+                                       motifs_4 = numeric(nrow(walksheds_validation)),
+                                       n_edges = numeric(nrow(walksheds_validation)),
+                                       diameter = numeric(nrow(walksheds_validation)), 
+                                       radius = numeric(nrow(walksheds_validation)),
+                                       girth = numeric(nrow(walksheds_validation)), 
+                                       global_efficiency = numeric(nrow(walksheds_validation)),
+                                       edge_density = numeric(nrow(walksheds_validation)),
+                                       edge_connectivity = numeric(nrow(walksheds_validation)),
+                                       mean_distance = numeric(nrow(walksheds_validation)),
+                                       min_cut = numeric(nrow(walksheds_validation)))
+
+for(i in 1:nrow(walksheds_validation)){
+  wsnet <- st_intersection(hamilton_edges, 
+                           walksheds_validation[i,]) |> 
+    st_cast(to = "LINESTRING")
+  wsnet <- as_sfnetwork(wsnet)
+  E(wsnet)$weight <- E(wsnet)$length
+  walksheds_validation_net_vars$n_nodes[i] <- gorder(wsnet)
+  walksheds_validation_net_vars$transitivity[i] <- transitivity(wsnet)
+  walksheds_validation_net_vars$motifs_3[i] <- count_motifs(wsnet, size = 3)
+  walksheds_validation_net_vars$motifs_4[i] <- count_motifs(wsnet, size = 4)
+  walksheds_validation_net_vars$n_edges[i] <- gsize(wsnet)
+  walksheds_validation_net_vars$diameter[i] <- diameter(wsnet)
+  walksheds_validation_net_vars$radius[i] <- radius(wsnet)
+  walksheds_validation_net_vars$girth[i] <- girth(wsnet)$girth
+  walksheds_validation_net_vars$global_efficiency[i] <- global_efficiency(wsnet)
+  walksheds_validation_net_vars$edge_density[i] <- edge_density(wsnet)
+  walksheds_validation_net_vars$edge_connectivity[i] <- edge_connectivity(wsnet)
+  walksheds_validation_net_vars$mean_distance[i] <- mean_distance(wsnet)
+  walksheds_validation_net_vars$min_cut[i] <- min_cut(wsnet)
+}
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+```
+
+Join the type of urban fabric:
+```{r}
+walksheds_validation_net_vars <- walksheds_validation_net_vars |>
+  mutate(Type = walksheds_validation$Type) |>
+  select(GeoUID, Type, n_nodes:min_cut)
+```
+
+Save the data object:
+```{r}
+save(walksheds_validation_net_vars, file = "walksheds_validation_net_vars.rda", compress = "xz")
+```
 
 ```{r}
-walksheds_net_attributes |>
+walksheds_da_net_vars |>
+  group_by(Type) |>
+  skim()
+```
+
+```{r}
+walksheds_validation_net_vars |>
   group_by(Type) |>
   skim()
 ```
@@ -103,9 +170,7 @@ Edge connectivity is not super useful: there is little variation - it is a measu
 
 Transitivity: it is the probability that the neighbors of a node are neighbors between them. In a Manhattan-style grid this number will be low because there will be lots and lots of squares.
 
-Motifs (calculated for size 3): It indicates the presence of particular subgraphs that repeat themselves. In other words, a graph with a large number of motifs will tend to have few unique elements (some elements happen again, again, and again). A graph with many unique elements will have few motifs (repetitive patterns).
-
-
+Motifs (calculated for size 3 and 4): It indicates the presence of particular subgraphs that repeat themselves. In other words, a graph with a large number of motifs will tend to have few unique elements (some elements happen again, again, and again). A graph with many unique elements will have few motifs (repetitive patterns).
 
 Motfis (from igraph help pages)
 ```{r}
