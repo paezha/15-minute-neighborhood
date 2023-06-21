@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: html_notebook
 ---
 
+**NOTE:** Notebook takes about 6 hours to run.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```

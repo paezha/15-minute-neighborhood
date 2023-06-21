@@ -15,11 +15,13 @@ In this document we profile the ped sheds based on their network attributes.
 
 Load packages:
 ```{r warning=FALSE, message=FALSE}
+library(broom) # Convert Statistical Objects into Tidy Tibbles
 library(dplyr) # A Grammar of Data Manipulation
 library(evtree) # Evolutionary Learning of Globally Optimal Trees
 library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
 library(glue) # Interpreted String Literals
+library(gt) # Easily Create Presentation-Ready Display Tables
 library(patchwork) # The Composer of Plots
 library(tidyr) # Tidy Messy Data
 library(tree) # Classification and Regression Trees
@@ -33,20 +35,22 @@ library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination 
 
 Load data:
 ```{r}
-load(file = "amenities_walkshed.rda")
+load(file = "amenities_walkshed_da.rda")
 load(file = "hamilton_net.rda")
 load(file = "urban_hammer_da.rda")
 data("urban_types")
-load(file = "walksheds.rda")
-load(file = "walksheds_net_attributes.rda")
+load(file = "walksheds_da.rda")
+load(file = "walksheds_da_net_vars.rda")
 ```
 
 ## Classification tree
 
 The aim is to train a classification tree to profile urban and suburban walksheds based on the attributes of the network. We need to drop 1 observation that has an NA in `transitivity`:
 ```{r}
-d <- walksheds_net_attributes |>
-                  drop_na()
+d <- walksheds_da_net_vars |>
+                  drop_na() |>
+  mutate(normalized_motifs_3 = motifs_3/n_edges,
+         normalized_motifs_4 = motifs_4/n_edges)
 ```
 
 
@@ -54,51 +58,45 @@ We use a technique with evolutionary trees - an alternative to classification tr
 
 Tree 1 with seed 1 (912571):
 ```{r}
-#seed1 <- sample.int(1000000, 1)
-seed1 <- 912571
-set.seed(seed1)
+seed1 <- sample.int(1000000, 1)
+#seed1 <- 908544
+set.seed(908544)
 tree1 <- evtree(Type ~ ., 
-                data = d |> select(-GeoUID))
-summary(tree1)
+                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
+plot(tree1)
 ```
 
 Tree 2 with seed 2 (94766):
 ```{r}
-#seed2 <- sample.int(1000000, 1)
-seed2 <- 94766
+seed2 <- sample.int(1000000, 1)
+#seed2 <- 669402
+seed2
 set.seed(seed2)
 tree2 <- evtree(Type ~ ., 
-                data = d |> select(-GeoUID))
-summary(tree2)
+                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
+plot(tree2)
 ```
 
 Tree 3 with seed 3 (46125):
 ```{r}
-#seed3 <- sample.int(1000000, 1)
-seed3 <- 46125
+seed3 <- sample.int(1000000, 1)
+#seed3 <- 853251
+seed3
 set.seed(seed3)
 tree3 <- evtree(Type ~ ., 
-                data = d |> select(-GeoUID))
-summary(tree3)
+                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
+plot(tree3)
 ```
 
 Tree 4 with seed 4 (556090)
 ```{r}
-#seed4 <- sample.int(1000000, 1)
-seed4 <- 556090
+seed4 <- sample.int(1000000, 1)
+#seed4 <- 707633
+seed4
 set.seed(seed4)
 tree4 <- evtree(Type ~ ., 
-                data = d |> select(-GeoUID))
-summary(tree4)
-```
-
-```{r}
-#seed4 <- sample.int(1000000, 1)
-seed4 <- 556090
-set.seed(seed4)
-tree5 <- evtree(Type ~ ., 
-                data = d |> select(-GeoUID))
-summary(tree5)
+                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
+plot(tree4)
 ```
 
 Create a function to estimate the missclassification rate and the evaluation function:
@@ -150,8 +148,234 @@ tree4_plot <- ggparty(tree4) +
 (tree1_plot + tree2_plot) / (tree3_plot + tree4_plot)
 ```
 
-Notice that transitivity and motifs are the dominant attributes in the classification trees. Trees 1, 3, and 4 have the same general structure, and in fact trees 3 and 4 are identical. Based on this we choose to use `tree3`.
+Notice that edge_density and normalized_motifs_3 are the dominant attributes in the classification trees. Trees 1, 3, and 4 have the same general structure, and in fact trees 3 and 4 are identical. Based on this we choose to use `tree3`.
 
+
+Check the break labels of `tree3` to round:
+```{r}
+ggparty(tree3)$data$breaks_label
+```
+
+
+```{r add-classification-to-data}
+#| include: false
+
+d <- d |>
+  mutate(leaf = case_when(edge_density < 0.00591859212548868 & normalized_motifs_3 < 0.86734693877551 ~ "Leaf 1",
+                          edge_density < 0.00591859212548868 & normalized_motifs_3 >= 0.86734693877551 ~ "Leaf 2",
+                          edge_density >= 0.00591859212548868 & normalized_motifs_3 < 0.967741935483871 ~ "Leaf 3",
+                          edge_density >= 0.00591859212548868 & normalized_motifs_3 >= 0.967741935483871 ~ "Leaf 4"),
+         leaf = factor(leaf))
+```
+
+```{r join-area-of-ped-sheds}
+#| include: false
+
+d <- d |>
+  left_join(walksheds |>
+              mutate(area = st_area(geometry),
+                     area = units::set_units(area, km^2) |> 
+                       drop_units()) |>
+              st_drop_geometry(),
+            by = c("GeoUID", "Type")) 
+```
+
+```{r area-of-ped-sheds-by-classification}
+#| echo: false
+
+d |>
+  select(area, leaf) |>
+  group_by(leaf) |>
+  skim() |>
+  mutate(across(numeric.mean:numeric.p100, 
+                      ~round(.x, 2)),
+         Type = c("Typically suburban", "Typically urban", "Typically suburban", "Typically urban")) |>
+  select(leaf, Type, starts_with("numeric")) |>
+  rename_with(~ str_replace(.x, "numeric.", ""), starts_with("numeric")) |>
+  gt() |>
+  cols_width(everything() ~ px(100)) |>
+  tab_options(table.font.size = 30)
+```
+
+
+Typically suburban networks contain many unique patterns (few motifs).
+
+0.00591859212548868 & normalized_motifs_3 < 0.86734693877551 ~ "Leaf 1",
+                          edge_density < 0.00591859212548868 & normalized_motifs_3 >= 0.86734693877551 ~ "Leaf 2",
+                          edge_density >= 0.00591859212548868 & normalized_motifs_3 < 0.967741935483871 ~ "Leaf 3",
+
+```{r plot-leaf-1}
+set.seed(29919)
+
+leaf_1_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density < 0.00591859212548868,
+                             normalized_motifs_3 < 0.86734693877551, 
+                             Type == "Suburban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_1_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_1_plot$edge_index)
+
+#leaf_1_plot <- 
+  leaf_1_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs < 0.867") +
+  theme_void()
+```
+
+```{r plot-leaf-2}
+set.seed(84451)
+
+leaf_2_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density >= 0.00591859212548868,
+                             normalized_motifs_3 < 0.967741935483871, 
+                             Type == "Suburban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_2_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_2_plot$edge_index)
+
+leaf_2_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs >= 0.968") +
+  theme_void()
+```
+
+```{r display-suburban-networks}
+#| echo: false
+
+leaf_1_plot + plot_spacer() + leaf_3_plot
+```
+
+
+Typically urban networks contain isomorphic patterns that repeat (large number of motifs).
+
+```{r plot-leaf-3}
+set.seed(92348)
+
+leaf_1_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density < 0.00591859212548868,
+                             normalized_motifs_3 >= 0.86734693877551, 
+                             Type == "Urban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_1_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_1_plot$edge_index)
+
+#leaf_1_plot <- 
+  leaf_1_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs >= 0.867") +
+  theme_void()
+```
+
+```{r plot-leaf-4}
+set.seed(392847)
+
+leaf_4_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density >= 0.00591859212548868,
+                             normalized_motifs_3 >= 0.967741935483871, 
+                             Type == "Urban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_4_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_4_plot$edge_index)
+
+leaf_4_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs >= 0.968") +
+  theme_void()
+```
+
+```{r display-urban-networks}
+#| echo: false
+
+leaf_2_plot + plot_spacer() + leaf_4_plot
+```
+
+
+## Analysis of pedshed areas as a function of network attributes
+
+```{r estimate-model-area}
+#| include: false
+mdl <- d |>
+  mutate(area = log(area),
+         edge_density_2 = edge_density^2,
+         normalized_motifs_3_2 = normalized_motifs_3^2) |>
+  lm(area ~ edge_density + edge_density_2 + normalized_motifs_3, data = _)
+```
+
+```{r tidy-results-of-model-area}
+#| include: false
+
+mdl_tidy <- mdl |>
+  tidy() |>
+  mutate(term = c("intercept", "edge_density", "edge_density^2", "normalized_motifs_3"))
+```
+
+```{r plot-effects-transitivity}
+#| include: false
+
+b1 <- mdl_tidy |> filter(term == "intercept") |> pull(estimate)
+b2 <- mdl_tidy |> filter(term == "edge_density") |> pull(estimate)
+b3 <- mdl_tidy |> filter(term == "edge_density^2") |> pull(estimate)
+f_transitivity <- function(x) exp(b1 + b2 * x +  b3 * x^2)
+
+effect_transitivity <- ggplot() +
+  geom_function(fun = f_transitivity,
+                xlim = c(0, 0.4)) +
+    ylim(c(0.05, 1.9)) +
+  ggtitle("Expected area as a function of transitivity") + 
+  ylab("area (sq.km)") +
+  xlab("transitivity") +
+  theme_minimal()
+```
+
+```{r plot-effect-motifs}
+#| include: false
+
+b1 <- mdl_tidy |> filter(term == "intercept") |> pull(estimate)
+b4 <- mdl_tidy |> filter(term == "normalized_motifs_3") |> pull(estimate)
+f_motifs <- function(x) exp(b1 + b4 * x)
+
+effect_motifs <- ggplot() +
+  geom_function(fun = f_motifs,
+                xlim = c(0.45, 1.1)) +
+  ylim(c(0.05, 1.9)) +
+  ggtitle("Expected area as a function of normalized motifs (size = 3)") + 
+  ylab("area (sq.km)") +
+  xlab("normalized motifs (size = 3)") +
+  theme_minimal()
+```
+
+```{r display-model-effects}
+#| echo: false
+
+effect_transitivity + effect_motifs
+```
+
+
+<!--
 Check the break labels of `tree3` to round:
 ```{r}
 ggparty(tree3)$data$breaks_label
@@ -447,6 +671,8 @@ plot(wsn.som, what="energy")
 ```{r}
 quality(wsn.som)
 ```
+
+
 
 
 

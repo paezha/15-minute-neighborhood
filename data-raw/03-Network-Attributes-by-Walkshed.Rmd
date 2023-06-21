@@ -5,11 +5,15 @@ date: "`r Sys.Date()`"
 output: html_notebook
 ---
 
+**NOTE:** Notebook takes about 7 hours to run.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-In this document I aim to partition the network based on walksheds.
+In this document we aim to partition the network based on walksheds.
+
+We tried smoothing the pseudo-nodes, but this process messed up with the geometry of the network which affects some of the network analysis, so we decided not to proceed. Instead, we use the network as is. Intersecting the network mutilates all edges that cross the boundary of the pedshed. To avoid this we keep track of the indices of the edges that intersect the pedshed and then retrieve them from the network.
 
 # Preliminaries
 
@@ -43,25 +47,34 @@ start.time <- Sys.time()
 
 # Initialize data frame
 walksheds_da_net_vars <- data.frame(GeoUID = walksheds_da$GeoUID,
-                                       n_nodes = numeric(nrow(walksheds_da)), 
-                                       transitivity = numeric(nrow(walksheds_da)),
-                                       motifs_3 = numeric(nrow(walksheds_da)),
-                                       motifs_4 = numeric(nrow(walksheds_da)),
-                                       n_edges = numeric(nrow(walksheds_da)),
-                                       diameter = numeric(nrow(walksheds_da)), 
-                                       radius = numeric(nrow(walksheds_da)),
-                                       girth = numeric(nrow(walksheds_da)), 
-                                       global_efficiency = numeric(nrow(walksheds_da)),
-                                       edge_density = numeric(nrow(walksheds_da)),
-                                       edge_connectivity = numeric(nrow(walksheds_da)),
-                                       mean_distance = numeric(nrow(walksheds_da)),
-                                       min_cut = numeric(nrow(walksheds_da)))
+                                    n_nodes = numeric(nrow(walksheds_da)), 
+                                    transitivity = numeric(nrow(walksheds_da)),
+                                    motifs_3 = numeric(nrow(walksheds_da)),
+                                    motifs_4 = numeric(nrow(walksheds_da)),
+                                    n_edges = numeric(nrow(walksheds_da)),
+                                    diameter = numeric(nrow(walksheds_da)), 
+                                    radius = numeric(nrow(walksheds_da)),
+                                    girth = numeric(nrow(walksheds_da)), 
+                                    global_efficiency = numeric(nrow(walksheds_da)),
+                                    edge_density = numeric(nrow(walksheds_da)),
+                                    edge_connectivity = numeric(nrow(walksheds_da)),
+                                    mean_distance = numeric(nrow(walksheds_da)),
+                                    min_cut = numeric(nrow(walksheds_da)))
 
 for(i in 1:nrow(walksheds_da)){
-  wsnet <- st_intersection(hamilton_edges, 
-                           walksheds_da[i,]) |> 
-    st_cast(to = "LINESTRING")
+  # Find the intersection between the edges and the walksheds. The edges will be truncated, but the indices can be used to retrieve the full edges.
+  wsnet <- hamilton_edges |>
+    st_filter(
+      walksheds_da[i,],
+      .predicate = st_intersects)
+  
+  # Extract the full edges that were found to intersect the walkshed
+  wsnet <- hamilton_edges |> 
+    filter(edge_index %in% wsnet$edge_index)
+  
+  # Convert to sfnetwork
   wsnet <- as_sfnetwork(wsnet)
+  
   E(wsnet)$weight <- E(wsnet)$length
   walksheds_da_net_vars$n_nodes[i] <- gorder(wsnet)
   walksheds_da_net_vars$transitivity[i] <- transitivity(wsnet)
@@ -102,25 +115,34 @@ start.time <- Sys.time()
 
 # Initialize data frame
 walksheds_validation_net_vars <- data.frame(GeoUID = walksheds_validation$GeoUID,
-                                       n_nodes = numeric(nrow(walksheds_validation)), 
-                                       transitivity = numeric(nrow(walksheds_validation)),
-                                       motifs_3 = numeric(nrow(walksheds_validation)),
-                                       motifs_4 = numeric(nrow(walksheds_validation)),
-                                       n_edges = numeric(nrow(walksheds_validation)),
-                                       diameter = numeric(nrow(walksheds_validation)), 
-                                       radius = numeric(nrow(walksheds_validation)),
-                                       girth = numeric(nrow(walksheds_validation)), 
-                                       global_efficiency = numeric(nrow(walksheds_validation)),
-                                       edge_density = numeric(nrow(walksheds_validation)),
-                                       edge_connectivity = numeric(nrow(walksheds_validation)),
-                                       mean_distance = numeric(nrow(walksheds_validation)),
-                                       min_cut = numeric(nrow(walksheds_validation)))
+                                            n_nodes = numeric(nrow(walksheds_validation)), 
+                                            transitivity = numeric(nrow(walksheds_validation)),
+                                            motifs_3 = numeric(nrow(walksheds_validation)),
+                                            motifs_4 = numeric(nrow(walksheds_validation)),
+                                            n_edges = numeric(nrow(walksheds_validation)),
+                                            diameter = numeric(nrow(walksheds_validation)), 
+                                            radius = numeric(nrow(walksheds_validation)),
+                                            girth = numeric(nrow(walksheds_validation)), 
+                                            global_efficiency = numeric(nrow(walksheds_validation)),
+                                            edge_density = numeric(nrow(walksheds_validation)),
+                                            edge_connectivity = numeric(nrow(walksheds_validation)),
+                                            mean_distance = numeric(nrow(walksheds_validation)),
+                                            min_cut = numeric(nrow(walksheds_validation)))
 
 for(i in 1:nrow(walksheds_validation)){
-  wsnet <- st_intersection(hamilton_edges, 
-                           walksheds_validation[i,]) |> 
-    st_cast(to = "LINESTRING")
+  # Find the intersection between the edges and the walksheds. The edges will be truncated, but the indices can be used to retrieve the full edges.
+  wsnet <- hamilton_edges |>
+    st_filter(
+      walksheds_validation[i,],
+      .predicate = st_intersects)
+  
+  # Extract the full edges that were found to intersect the walkshed
+  wsnet <- hamilton_edges |> 
+    filter(edge_index %in% wsnet$edge_index)
+  
+  # Convert to sfnetwork
   wsnet <- as_sfnetwork(wsnet)
+  
   E(wsnet)$weight <- E(wsnet)$length
   walksheds_validation_net_vars$n_nodes[i] <- gorder(wsnet)
   walksheds_validation_net_vars$transitivity[i] <- transitivity(wsnet)
@@ -184,5 +206,25 @@ sample_motifs(g, 3)
 ```{r}
 pattern <- graph.full(3)
 my.graph <- grg.game(100, 0.2) 
+```
+
+Example of pedshed with network:
+```{r}
+sample_walkshed <- sample.int(nrow(walksheds_da), 1)
+
+wsnet <- hamilton_edges |>
+  st_filter(
+    walksheds_da[sample_walkshed,],
+    .predicate = st_intersects)
+
+# Extract the full edges that were found to intersect the walkshed
+wsnet <- hamilton_edges |> 
+  filter(edge_index %in% wsnet$edge_index)
+
+ggplot() +
+  geom_sf(data = walksheds_da[sample_walkshed,]) +
+  geom_sf(data = wsnet) +
+  theme_void()
+
 ```
 

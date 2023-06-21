@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
+**NOTE:** Notebook takes about 10 minutes to run.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -17,6 +19,7 @@ Load packages:
 ```{r warning=FALSE, message=FALSE}
 library(dplyr) # A Grammar of Data Manipulation
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(h3)
 library(sf) # Simple Features for R
 library(skimr) # Compact and Flexible Summaries of Data
 library(tidyr) # Tidy Messy Data
@@ -28,7 +31,8 @@ library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination 
 load(file = "amenities_points.rda")
 load(file = "urban_hammer_da.rda")
 data(urban_types)
-load(file = "walksheds.rda")
+load(file = "walksheds_da.rda")
+load(file = "walksheds_validation.rda")
 ```
 
 
@@ -37,9 +41,23 @@ Intersect amenities with walksheds to obtain the cumulative opportunities:
 # Time algorithm
 start.time <- Sys.time()
 
-amenities_walksheds <- amenities_points |>
+amenities_walksheds_da <- amenities_points |>
   select(amenity, Category) |>
-  st_intersection(walksheds)
+  st_intersection(walksheds_da)
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+```
+
+Validation walksheds:
+```{r warning=FALSE}
+# Time algorithm
+start.time <- Sys.time()
+
+amenities_walksheds_validation <- amenities_points |>
+  select(amenity, Category) |>
+  st_intersection(walksheds_validation)
 
 end.time <- Sys.time()
 time.taken <- end.time - start.time
@@ -48,12 +66,13 @@ time.taken
 
 Save amenities by walkshed:
 ```{r}
-save(amenities_walksheds, file = "amenities_walkshed.rda", compress = "xz")
+save(amenities_walksheds_da, file = "amenities_walkshed_da.rda", compress = "xz")
+save(amenities_walksheds_validation, file = "amenities_walkshed_validation.rda", compress = "xz")
 ```
 
 Summary of amenity categories by DA and Type:
 ```{r}
-amenities_walksheds_summary <- amenities_walksheds |>
+amenities_walksheds_summary <- amenities_walksheds_da |>
   drop_na() |>
   st_drop_geometry() |>
   group_by(GeoUID,
@@ -216,18 +235,18 @@ Proportion of suburban and urban population in zero amenity sheds:
 zero_amenity_walksheds_summary$Population/city_wide_summary$Population
 ```
 
-Almost 50% of suburban population (which represent about 23% of the total population in Hamilton) live in DAs with zero amenities within the 15-min walk shed.
+About 50% of suburban population (which represent about 22% of the total population in Hamilton) live in DAs with zero amenities within the 15-min walk shed.
 
-About 18% of urban population (representing about 5% of the total population of the city) live in DAs with zero amenities within the 15-min walk shed.
+About 15% of urban population (representing about 3.7% of the total population of the city) live in DAs with zero amenities within the 15-min walk shed.
 
 Proportion of suburban and urban population in minimal 15-min sheds:
 ```{r}
 minimal_amenities_walksheds_summary$Population/city_wide_summary$Population
 ```
 
-Barely 2.5% of suburban residents live in DAs with minimal 15-min walk sheds. They represent approximately half a percentage point of the total population of the city.
+Barely 2.3% of suburban residents live in DAs with minimal 15-min walk sheds. They represent approximately 1% of the total population of the city.
 
-More than 15% of urban population live in DAs with minimal 15-min walk sheds, and account for approximately 2.6% of the total population of the city. 
+More than 15% of urban population live in DAs with minimal 15-min walk sheds, and account for approximately 3.8% of the total population of the city. 
 
 Compare amenities by category and urban fabric type:
 ```{r}
@@ -256,9 +275,9 @@ seed <- sample.int(1000000, 1)
 set.seed(seed)
 seed
 
-# 409029, 534918
+# 609054, 144675, 741580
 
-sample_walksheds <- amenities_walksheds |>
+sample_walksheds <- amenities_walksheds_da |>
   group_by(Type) |>
   slice_sample(n = 1)
 
@@ -266,16 +285,74 @@ ggplot()  +
   # geom_sf(data = urban_types |>
   #               filter(Type != "Rural"),
   #         aes(fill = Type)) +
-  geom_sf(data = walksheds |>
+  geom_sf(data = walksheds_da |>
             filter((GeoUID == sample_walksheds$GeoUID[1] & Type == sample_walksheds$Type[1]) | 
                      (GeoUID == sample_walksheds$GeoUID[2] & Type == sample_walksheds$Type[2])),
           aes(fill = Type),
           color = "black")+
-  geom_sf(data = amenities_walksheds |>
+  geom_sf(data = amenities_walksheds_da |>
             filter((GeoUID == sample_walksheds$GeoUID[1] & Type == sample_walksheds$Type[1]) | 
                      (GeoUID == sample_walksheds$GeoUID[2] & Type == sample_walksheds$Type[2])),
           #aes(color = Category)
           )
+```
+
+Distance to amenities:
+```{r}
+load("ttm_walk_da.rda")
+```
+
+
+```{r}
+amenities_by_h3 <- amenities_points |>
+  st_drop_geometry() |>
+  group_by(h3_index) |>
+  summarize(n_amenities = n(),
+            .groups = "drop")
+```
+
+
+Join the amenities to the travel time matrix by means of the h3 indices:
+```{r}
+ttm_walk_to_amenities <- ttm_walk_da |>
+  left_join(amenities_by_h3,
+            by = "h3_index") |>
+  drop_na(n_amenities)
+```
+
+Also join the urban fabric type:
+```{r}
+ttm_walk_to_amenities <- ttm_walk_to_amenities |>
+  left_join(urban_hammer_da |>
+              st_drop_geometry() |>
+              transmute(GeoUID, Type = Type.1),
+            by = "GeoUID")
+```
+
+Summarize travel times to amenities from DA centroids:
+```{r}
+junk <- ttm_walk_to_amenities |>
+  select(GeoUID, Type, travel_time) |>
+  group_by(GeoUID, Type) |>
+  summarize(min_travel_time = min(travel_time),
+            mean_travel_time = mean(travel_time),
+            .groups = "drop")
+```
+
+Distribution of mean travel times by urban fabric:
+```{r}
+junk |>
+  ggplot(aes(x = mean_travel_time,
+             color = Type)) +
+  geom_density()
+```
+
+Distribution of min travel times by urban fabric:
+```{r}
+junk |>
+  ggplot(aes(x = min_travel_time,
+             color = Type)) +
+  geom_density()
 ```
 
 

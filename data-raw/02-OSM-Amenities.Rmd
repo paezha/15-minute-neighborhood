@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: html_notebook
 ---
 
+**NOTE:** Notebook takes minutes to run.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -181,20 +183,14 @@ ggplot() +
           aes(color = Category))
 ```
 
-Obtain the coordinates of the points:
+Obtain the h3 indices at level 13 from the simple features object:
 ```{r}
-amenities_coords <- amenities_points |>
-  st_coordinates()
-
-amenities_points <- amenities_points |>
-  mutate(lon = amenities_coords[,1], lat = amenities_coords[,2])
+amenities_h3 <- geo_to_h3(amenities_points, res = 13)
 ```
 
-Use the coordinates to obtain the h3 indices at level 13:
+Add h3 indices to amenities_points data object:
 ```{r}
-amenities_points <- amenities_points |>
-  mutate(h3_index = geo_to_h3(st_coordinates(geometry),
-                              13))
+amenities_points$h3_index <- amenities_h3
 ```
 
 Save the data objects:
