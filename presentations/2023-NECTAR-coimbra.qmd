@@ -1,0 +1,661 @@
+---
+title: |
+    | Reality or wishful thinking:
+    | Network attributes of 15-minute neighbourhoods
+author: "**Antonio Páez**, Belén Martín, Josh Arbess, James R. Dunn"
+format: revealjs
+execute: 
+  cache: true
+---
+
+
+```{r load-packages}
+#| include: false
+#| cache: false
+
+library(broom) # Convert Statistical Objects into Tidy Tibbles
+library(dplyr) # A Grammar of Data Manipulation
+library(evtree) # Evolutionary Learning of Globally Optimal Trees
+library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(ggspatial) # Spatial Data Framework for ggplot2
+library(glue) # Interpreted String Literals
+library(gt) # Easily Create Presentation-Ready Display Tables
+library(here) # A Simpler Way to Find Your Files
+library(patchwork) # The Composer of Plots
+library(tidyr) # Tidy Messy Data
+library(tree) # Classification and Regression Trees
+library(sf) # Simple Features for R
+library(skimr) # Compact and Flexible Summaries of Data
+library(stringr) # Simple, Consistent Wrappers for Common String Operations
+library(units) # Measurement Units for R Vectors
+library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
+```
+
+```{r load-data}
+#| include: false
+
+load(file = glue(here(), "/data-raw/amenities_walkshed.rda"))
+load(file = glue(here(), "/data-raw/hamilton_net.rda"))
+load(file = glue(here(), "/data-raw/urban_hammer_da.rda"))
+data("urban_types")
+load(file = glue(here(), "/data-raw/walksheds_da.rda"))
+load(file = glue(here(), "/data-raw/walksheds_da_net_vars.rda"))
+hamilton_edges <- hamilton_net$edges
+```
+
+```{r clean-net-attributes-data}
+#| include: false
+d <- walksheds_da_net_vars |>
+  drop_na() |>
+  mutate(normalized_motifs_3 = motifs_3/n_edges,
+         normalized_motifs_4 = motifs_4/n_edges)
+```
+
+# The 15-min neighborhood
+
+##
+
+The 15-min neighborhood^[Sometimes mislabeled as the 15-min city.].
+
+- A form of chronourbanism that emphasizes movement at a human scale...
+- ...in environments that accommodate a wide range of capabilities throughout the lifespan...
+- ...with the aim of improving livability and health.
+
+## 
+
+The 15-min neighborhood is powered by:
+
+::: {.r-fit-text style="margin-top: 50px; font-size: 3em; color: black;"}
+The 15-min pedshed
+:::
+
+A 15-min pedestrian shed $\equiv$ a 15-min walking isochrone.
+
+## 
+
+When combined with the environment, the 15-min pedshed is:
+
+1. A normative...
+2. ...cumulative opportunities...
+3. ...accessibility index.
+
+$$
+A_i = \sum_{j \in \text{15-min pedshed}} O_j
+$$
+
+Keeping the environment constant, bigger pedsheds result in higher accessibility.
+
+## 
+
+The maximum pedshed area^[For a given walking speed] would be in a homogeneous, isotropic surface (i.e., a featureless plain).
+
+![](plain-978359-pxhere.com.jpg){.absolute top=150 left=200 height="450"}
+
+
+::: {.notes}
+image source: https://pxhere.com/en/photo/978359
+:::
+
+##
+
+Streetscapes limit where movement can happen, which inevitably leads to smaller pedsheds. 
+
+## 
+
+And furthermore, not all streetscapes are created equal.
+
+![](suburban-603627-pxhere.com.jpg){.absolute top=200 left=-150 height="400"}
+
+![](urban-995263-pxhere.com.jpg){.absolute top=200 right=-150 height="400"}
+
+::: {.notes}
+image source: urban streetscape https://pxhere.com/en/photo/995263
+image source: suburban streetscape https://pxhere.com/en/photo/603627
+:::
+
+# Research questions
+
+How much do 15-min pedsheds vary in a typical Canadian city (Hamilton)?
+
+What are their characteristics?
+
+# Materials
+
+## 
+
+Open source data.
+
+- Street network (OSM).
+- Amenities (OSM).
+- Dissemination Areas (DAs: Census).
+- Urban types (City of Hamilton).
+
+## 
+
+$n = 888$ urban and suburban zones in Hamilton (rural Hamilton excluded).
+
+```{r study-area}
+#| echo: false
+
+ggplot() +
+  geom_sf(data = st_union(urban_types)) +
+  geom_sf(data = urban_types |>
+            filter(Type != "Rural"),
+          aes(fill = Type)) +
+  geom_sf(data = urban_hammer_da,
+          fill = NA) +
+  scale_fill_manual(values = c("Urban" = "#619CFF", "Suburban" = "#F8766D")) +
+  theme_void()
+```
+
+## 
+
+Open source software (`R`).
+
+- Data collection and processing.
+- Routing.
+- Spatial analysis.
+- Network analysis.
+
+##
+
+Open, reproducible research.
+
+[https://github.com/paezha/15-minute-neighborhood](https://github.com/paezha/15-minute-neighborhood)
+
+# pedsheds
+
+##
+
+pedsheds calculated from zonal centroids using [`r5r`](https://ipeagit.github.io/r5r/) assuming a walking speed of 3.6 $km/h$.
+
+```{r example-of-network}
+#| echo: false
+#| warning: false
+
+max_shed_r <- (set_units(3.6, km/h) |> set_units(m/min)) * set_units(15, min)
+
+sample_da <- data_da_2016 |>
+  filter(GeoUID == "35250102")
+
+sample_da_coords <- data.frame(geometry = st_geometry(sample_da |>
+                                                        st_centroid() |>
+                                                        st_coordinates() |>
+                                                        st_point())) |>
+  st_as_sf(crs = 4326)
+
+
+sample_net <- hamilton_net$edges |>
+  st_intersection(st_buffer(sample_da_coords, max_shed_r))
+
+ggplot() +
+  geom_sf(data = sample_net,
+          color = "lightgray") +
+  geom_sf(data = sample_da,
+          fill = NA,
+          linewidth = 1,
+          color = "#619CFF") +
+  geom_sf(data = sample_da_coords,
+          color = "#619CFF",
+          size = 3) +
+  geom_sf(data = sample_da_coords |>
+            st_buffer(dist = 900),
+          fill = NA,
+          color = "black") +
+  labs(caption = "Blue polygon is DA boundary; blue dot is centroid") +
+  annotation_scale() +
+  theme_void()
+```
+
+## 
+
+Summary of pedshed areas (max. pedshed area is `r round(pi * max_shed_r^2 |> units::set_units(km^2), 2)` $km^2$).
+
+Notice the large variability within the city and between suburban and urban Hamilton.
+
+```{r ped-shed-area-summary}
+#| echo: false
+
+global <- walksheds_da |>
+  mutate(area = st_area(geometry),
+         area = units::set_units(area, km^2) |> 
+           drop_units()) |>
+  st_drop_geometry() |>
+  select(-c(GeoUID, Type)) |>
+  skim()
+
+by_type <- walksheds_da |>
+  mutate(area = st_area(geometry),
+         area = units::set_units(area, km^2) |> 
+           drop_units()) |>
+  st_drop_geometry() |>
+  select(-c(GeoUID)) |>
+  group_by(Type) |>
+  skim()
+
+rbind(global |> 
+        select(numeric.mean:numeric.hist) |> 
+        mutate(across(!ends_with("hist"), 
+                      ~round(.x, 2))), 
+      by_type|> 
+        select(numeric.mean:numeric.hist) |> 
+        mutate(across(!ends_with("hist"), 
+                      ~round(.x, 2)))) |>
+  mutate(Type = c("All", "Suburban", "Urban"),
+         n = c(d |> nrow(),
+               d |> filter(Type == "Suburban") |> nrow(),
+               d |> filter(Type == "Urban") |> nrow())) |>
+  select(Type, n, starts_with("numeric")) |>
+  rename_with(~ str_replace(.x, "numeric.", ""), starts_with("numeric")) |>
+  gt() |>
+  cols_width(everything() ~ px(100)) |>
+  tab_options(table.font.size = 30)
+```
+
+# Network attributes
+
+## 
+
+Intersect the network and the pedsheds to extract the subset of the network for each pedshed.
+
+```{r}
+#| include: false
+
+#seed <- sample.int(29873, 1)
+#seed
+set.seed(20512)
+
+sample_walkshed <- walksheds_da |>
+  filter(Type == "Urban") |>
+  slice_sample(n = 1)
+#  filter(GeoUID == "35250102")
+
+# Find the intersection between the edges and the walksheds. The edges will be truncated, but the indices can be used to retrieve the full edges.
+wsnet <- hamilton_edges |>
+  st_filter(
+    sample_walkshed,
+    .predicate = st_intersects)
+
+# Extract the full edges that were found to intersect the walkshed
+wsnet <- hamilton_edges |> 
+  filter(edge_index %in% wsnet$edge_index)
+
+sample_da <- urban_hammer_da |>
+  filter(GeoUID == sample_walkshed$GeoUID)
+
+urban_walkshed <- ggplot() +
+  geom_sf(data = sample_walkshed) +
+  geom_sf(data = sample_da,
+          fill = NA,
+          color = "#619CFF",
+          linewidth = 4) +
+  geom_sf(data = wsnet) +
+  theme_void()
+
+```
+
+```{r}
+#| include: false
+
+#seed <- sample.int(29873, 1)
+#seed
+#137
+
+set.seed(137)
+
+sample_walkshed <- walksheds_da |>
+  filter(Type == "Suburban") |>
+  slice_sample(n = 1)
+#  filter(GeoUID == "35250102")
+
+# Find the intersection between the edges and the walksheds. The edges will be truncated, but the indices can be used to retrieve the full edges.
+wsnet <- hamilton_edges |>
+  st_filter(
+    sample_walkshed,
+    .predicate = st_intersects)
+
+# Extract the full edges that were found to intersect the walkshed
+wsnet <- hamilton_edges |> 
+  filter(edge_index %in% wsnet$edge_index)
+
+sample_da <- urban_hammer_da |>
+  filter(GeoUID == sample_walkshed$GeoUID)
+
+suburban_walkshed <- ggplot() +
+  geom_sf(data = sample_walkshed) +
+  geom_sf(data = sample_da,
+          fill = NA,
+          color = "#F8766D",
+          linewidth = 4) +
+  coord_sf(xlim = c(-79.94532, -79.91076),
+           ylim = c(43.25742, 43.27836)) +
+  geom_sf(data = wsnet) +
+  theme_void()
+
+```
+
+```{r}
+#| echo: false
+
+urban_walkshed + suburban_walkshed
+```
+
+
+## {.smaller .scrollable}
+
+Global descriptors of the network.
+
+- Edge density (ratio of actual to maximum edges: how connected is the network).
+- Motifs (recurrence of graph elements: repetition of patterns).
+- Diameter (longest shortest path in network: how distant are the two most distant nodes).
+- Radius (shortest shortest path in network: how close are the two closest nodes).
+- Girth (length of shortest circle: shortest path for a node to reach itself).
+- Global efficiency (harmonic mean of distances between all nodes: how easy it is on average to reach others).
+- Transitivity (probability that the friends of my friends are my friends: minimal circuits).
+- Edge connectivity (How many edges need to be removed to eliminate all paths between two nodes).
+- Mean distance (mean of length of all shortest paths).
+
+##
+
+Profiling the pedsheds based on their network attributes.
+
+```{r train-classification-tree}
+#| echo: false
+
+#seed3 <- sample.int(1000000, 1)
+#seed3 <- 853251
+#seed3
+set.seed(853251)
+tree3 <- evtree(Type ~ ., 
+                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
+#plot(tree3)
+```
+
+```{r plot-classification-tree}
+#| echo: false
+
+# Plot the tree with rounded break labels:
+
+ggparty(tree3) +
+  geom_edge() +
+  geom_edge_label(aes(label = str_replace_all(breaks_label, 
+                                              c("0.00591859212548868" = "0.006",
+                                                "0.86734693877551" = "0.867",
+                                                "0.967741935483871" = "0.968")))) +
+  geom_node_splitvar(aes(label = ifelse(kids == 0,
+                                        glue(" n = {nodesize}"), 
+                                        splitvar)),
+                     nudge_x = 0.0,
+                     ids = c(1, 2, 5)) +
+  geom_node_splitvar(aes(label = ifelse(kids == 0,
+                                        glue(" n = {nodesize}"), 
+                                        splitvar)),
+                     nudge_x = 0.02,
+                     ids = c(3, 4, 6, 7)) +
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", 
+                                            fill = Type),
+                                        position = position_fill()),
+                               xlab("Type"),
+                               theme_minimal()),
+                 # draw only one label for each axis
+                 shared_axis_labels = TRUE,
+                 # draw line between tree and legend
+                 legend_separator = FALSE)
+```
+
+##
+
+Typically suburban networks contain many unique patterns (few motifs).
+
+```{r plot-leaf-1}
+#| include: false
+#| warning: false
+
+set.seed(289919)
+
+leaf_1_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density < 0.00591859212548868,
+                             normalized_motifs_3 < 0.86734693877551, 
+                             Type == "Suburban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_1_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_1_plot$edge_index)
+
+leaf_1_plot <- leaf_1_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs < 0.867") +
+  theme_void()
+```
+
+```{r plot-leaf-3}
+#| include: false
+#| warning: false
+
+set.seed(84451)
+
+leaf_3_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density >= 0.00591859212548868,
+                             normalized_motifs_3 < 0.967741935483871, 
+                             Type == "Suburban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_3_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_3_plot$edge_index)
+
+leaf_3_plot <- leaf_3_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs >= 0.968") +
+  theme_void()
+```
+
+```{r display-suburban-networks}
+#| echo: false
+
+leaf_1_plot + plot_spacer() + leaf_3_plot
+```
+
+##
+
+Typically urban networks contain isomorphic patterns that repeat (large number of motifs).
+
+```{r plot-leaf-2}
+#| include: false
+#| warning: false
+
+set.seed(92348)
+
+leaf_2_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density < 0.00591859212548868,
+                             normalized_motifs_3 >= 0.86734693877551, 
+                             Type == "Urban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_2_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_2_plot$edge_index)
+
+leaf_2_plot <- leaf_2_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs >= 0.867") +
+  theme_void()
+```
+
+```{r plot-leaf-4}
+#| include: false
+#| warning: false
+
+set.seed(392047)
+
+leaf_4_plot <- st_intersection(hamilton_net$edges,
+             walksheds_da |> 
+  filter(GeoUID == (walksheds_da_net_vars |> 
+                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
+                      filter(edge_density >= 0.00591859212548868,
+                             normalized_motifs_3 >= 0.967741935483871, 
+                             Type == "Urban") |> 
+                      slice_sample(n=1) |> 
+                      pull(GeoUID))))
+
+leaf_4_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_4_plot$edge_index)
+
+leaf_4_plot <- leaf_4_plot |>
+  ggplot() +
+  geom_sf() +
+  ggtitle("edge density < 0.006, motifs >= 0.968") +
+  theme_void()
+```
+
+```{r display-urban-networks}
+#| echo: false
+
+leaf_2_plot + plot_spacer() + leaf_4_plot
+```
+
+# Network attributes of pedsheds
+
+## 
+
+Re-examining the areas of the pedsheds.
+
+```{r add-classification-to-data}
+#| include: false
+
+d <- d |>
+  mutate(leaf = case_when(edge_density < 0.00591859212548868 & normalized_motifs_3 < 0.86734693877551 ~ "Leaf 1",
+                          edge_density < 0.00591859212548868 & normalized_motifs_3 >= 0.86734693877551 ~ "Leaf 2",
+                          edge_density >= 0.00591859212548868 & normalized_motifs_3 < 0.967741935483871 ~ "Leaf 3",
+                          edge_density >= 0.00591859212548868 & normalized_motifs_3 >= 0.967741935483871 ~ "Leaf 4"),
+         leaf = factor(leaf))
+```
+
+```{r join-area-of-ped-sheds}
+#| include: false
+
+d <- d |>
+  left_join(walksheds_da |>
+              mutate(area = st_area(geometry),
+                     area = units::set_units(area, km^2) |> 
+                       drop_units()) |>
+              st_drop_geometry(),
+            by = c("GeoUID", "Type")) 
+```
+
+```{r area-of-ped-sheds-by-classification}
+#| echo: false
+
+d |>
+  select(area, leaf) |>
+  group_by(leaf) |>
+  skim() |>
+  mutate(across(numeric.mean:numeric.p100, 
+                ~round(.x, 2)),
+         Type = c("Typically suburban", "Typically urban", "Typically suburban", "Typically urban"),
+         n = c(d |> filter(leaf == "Leaf 1") |> nrow(),
+               d |> filter(leaf == "Leaf 2") |> nrow(),
+               d |> filter(leaf == "Leaf 3") |> nrow(),
+               d |> filter(leaf == "Leaf 4") |> nrow())) |>
+  select(leaf, n, Type, starts_with("numeric")) |>
+  rename_with(~ str_replace(.x, "numeric.", ""), starts_with("numeric")) |>
+  gt() |>
+  cols_width(everything() ~ px(100)) |>
+  tab_options(table.font.size = 30)
+```
+
+## 
+
+pedshed area as a function of network attributes.
+
+```{r estimate-model-area}
+#| include: false
+mdl <- d |>
+  mutate(area = log(area),
+         edge_density_2 = edge_density^2,
+         normalized_motifs_3_2 = normalized_motifs_3^2) |>
+  lm(area ~ edge_density + edge_density_2 + normalized_motifs_3, data = _)
+```
+
+```{r tidy-results-of-model-area}
+#| include: false
+
+mdl_tidy <- mdl |>
+  tidy() |>
+  mutate(term = c("intercept", "edge_density", "edge_density^2", "normalized_motifs_3"))
+```
+
+```{r plot-effects-transitivity}
+#| include: false
+
+b1 <- mdl_tidy |> filter(term == "intercept") |> pull(estimate)
+b2 <- mdl_tidy |> filter(term == "edge_density") |> pull(estimate)
+b3 <- mdl_tidy |> filter(term == "edge_density^2") |> pull(estimate)
+f_transitivity <- function(x) exp(b1 + b2 * x +  b3 * x^2)
+
+effect_edge_density <- ggplot() +
+  geom_function(fun = f_transitivity,
+                xlim = c(0, 0.4)) +
+    ylim(c(0.05, 1.9)) +
+  ggtitle("Expected area as a function of edge density") + 
+  ylab("area (sq.km)") +
+  xlab("edge density") +
+  theme_minimal()
+```
+
+```{r plot-effect-motifs}
+#| include: false
+
+b1 <- mdl_tidy |> filter(term == "intercept") |> pull(estimate)
+b4 <- mdl_tidy |> filter(term == "normalized_motifs_3") |> pull(estimate)
+f_motifs <- function(x) exp(b1 + b4 * x)
+
+effect_motifs <- ggplot() +
+  geom_function(fun = f_motifs,
+                xlim = c(0.45, 1.1)) +
+  ylim(c(0.05, 1.9)) +
+  ggtitle("Expected area as a function of normalized motifs") + 
+  ylab("area (sq.km)") +
+  xlab("normalized motifs (size = 3)") +
+  theme_minimal()
+```
+
+```{r display-model-effects}
+#| echo: false
+
+effect_edge_density + effect_motifs
+```
+
+# In summary...
+
+## Conclusions
+
+- pedshed area varies greatly within Hamilton.
+- The size of pedsheds varies significantly with the attributes of the network.
+- Results suggest pedshed areas maximized when many connections built with repetitive patterns.
+
+## Implications
+
+- Typically suburban networks result in relatively small pedsheds.
+- Turning suburbs into 15-min neighborhoods may require major transportation infrastructure changes.
+- Alternatively, major increases in density.
+- Very unlikely that the 15-min city will be achieved, but many 15-min neighborhoods may be possible.
+
+## Future work
+
+- Expand the analysis to include the environment, i.e., the opportunity landscape.
+- Examine other cities.
