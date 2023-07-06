@@ -1,0 +1,84 @@
+---
+title: "Which fifteen-minutes neighborhoods are dead-ends? An analysis of the network attributes of fifteen-minute pedsheds"
+author:
+  - name: Author One
+    email: a1@example.com
+    affiliation: University One
+    correspondingauthor: true
+    footnote: 1
+  - name: Author Two
+    email: a2@example.com
+    affiliation: University Two
+  - name: Author Three
+    email: a3@example.com
+    affiliation: University One
+    footnote: 2
+  - name: Author Four
+    email: a4@example.com
+    affiliation: University One
+    footnote: 2
+address:
+  - code: University One
+    organization: Department
+    addressline: 1 main street
+    city: City
+    state: State
+    postcode: 123456
+    country: Country
+  - code: University Two
+    organization: Department
+    addressline: 2 main street
+    postcode: 2054
+    city: City
+    country: Country
+footnote:
+  - code: 1
+    text: "This is the first author footnote."
+  - code: 2
+    text: "Another author footnote."
+abstract: |
+  Fifteen-minutes neihborhoods, a form of normative chronourbanism based on cumulative opportunities, has gained recognized as a way to reduce the need for motorized travel, and increase the livability, convenience, and health of the public. At the core of this concept is a pedshed, an area defined by the walkable isochrone of the eponymous fifteen minutes. As the idea of fifteen-minutes neighborhoods develops traction in policy and planning circles, it seems timely to revisit the way street network design can support—or obstruct—the stated goal of preserving or creating walkable neighborhoods with essential amenities. In this paper we examine a sample ($n=834$) of fifteen-minutes pedsheds in Hamilton, a medium-sized city in Canada, and how their sizes relate to the attributes of the transportation network. The analysis reveals that network design in suburban Hamilton conspires against the creating of fifteen-minutes neighborhoods. Much of urban Hamilton, in contrast, already has the characteristics of fifteen-minutes neighborhoods. The research points to elements of network design that can help to discriminate between candidate neighborhoods and dead-ends, and that can provide parameters for the design of new developments.
+
+keywords: 
+  - Fifteen-minutes neighborhoods
+  - Pedshed
+  - Walkability
+  - Accessibility
+  - Network analysis
+journal: "Sustainable Cities and Society"
+date: "`r Sys.Date()`"
+classoption: preprint, 3p, authoryear
+bibliography:
+  - "`r system('kpsewhich ../bibliography/bibliography.bib', intern=TRUE)`"
+linenumbers: false
+numbersections: true
+# Use a CSL with `citation_package = "default"`
+# csl: https://www.zotero.org/styles/elsevier-harvard
+output: 
+  rticles::elsevier_article:
+    keep_tex: true
+    citation_package: natbib
+---
+
+# Introduction
+
+"Il faut oublier la traversée de Paris d'est en ouest en voiture"^[ "We must forget about crossing Paris from east to west by car"] [@alimi2020]. 
+
+With this declaration during her reelection campaign in 2020, Anne Hidalgo brought international attention to the concept of walkable fifteen-minutes neighborhoods. 
+
+
+<!-- 
+Automotive retrofits in traditional city centers:
+
+@bass2019automotive
+-->
+
+@knight2018walkable
+@liu2022toward
+@pozoukidou2021fifteen
+@weng2019fifteen
+
+
+
+# References {-}
+

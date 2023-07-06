@@ -1598,12 +1598,13 @@
     },
     "rticles": {
       "Package": "rticles",
-      "Version": "0.24",
+      "Version": "0.25",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "cb84b88016fa556ff9476b71d8d5e3f0",
+      "Hash": "9d0dabda18a76c9f08a89eafa7cce731",
       "Requirements": [
         "knitr",
+        "lifecycle",
         "rmarkdown",
         "tinytex",
         "xfun",

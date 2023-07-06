@@ -329,6 +329,14 @@ ttm_walk_to_amenities <- ttm_walk_to_amenities |>
             by = "GeoUID")
 ```
 
+Distribution of travel times by fabric type:
+```{r}
+ttm_walk_to_amenities |> 
+  ggplot() +
+  geom_histogram(aes(x = travel_time, fill = Type),
+                 position = "dodge")
+```
+
 Summarize travel times to amenities from DA centroids:
 ```{r}
 junk <- ttm_walk_to_amenities |>
@@ -355,4 +363,32 @@ junk |>
   geom_density()
 ```
 
+See Millward, Spinney, and Scott (2013) for some distance-decay functions for active transport. The decay curves are very steep, so the difference in minimum time and mean time to destinations by urban fabric can potentially have a large impact on the decision to walk.
+
+For all destinations this is the equation:
+$$
+\log(Y) = 1.282 - 0.048 \cdot t
+$$
+For all destinations this is the equation:
+$$
+\log(Y) = 1.035 - 0.032 \cdot t
+$$
+
+$Y$ is the percentage of trips and $t$ is the time in minutes.
+
+```{r}
+ggplot() +
+  geom_function(fun = function(x) exp(1.282)*exp(-0.048)^x,
+                color = "blue") +
+  geom_function(fun = function(x) exp(1.035) * exp(-0.032)^x,
+                color = "red") +
+  #geom_vline(xintercept =  4.37) +
+  #geom_vline(xintercept = 6.02) +
+  xlim(1, 15)
+```
+
+The median of the minimum distance to any amenity in urban walksheds is 4.00 and in suburban sheds is 6.00. If we use the impedance function for all destinations, this means that the probability of taking an active trip is about 40\% lower in suburban sheds:
+```{r}
+exp(1.282)*exp(-0.048)^6.0/exp(1.282)*exp(-0.048)^4.0
+```
 

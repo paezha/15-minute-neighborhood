@@ -172,7 +172,7 @@ d <- d |>
 #| include: false
 
 d <- d |>
-  left_join(walksheds |>
+  left_join(walksheds_da |>
               mutate(area = st_area(geometry),
                      area = units::set_units(area, km^2) |> 
                        drop_units()) |>

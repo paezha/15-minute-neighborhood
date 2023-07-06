@@ -1,0 +1,143 @@
+\documentclass[preprint, 3p,
+authoryear]{elsarticle} %review=doublespace preprint=single 5p=2 column
+%%% Begin My package additions %%%%%%%%%%%%%%%%%%%
+
+\usepackage[hyphens]{url}
+
+  \journal{Sustainable Cities and Society} % Sets Journal name
+
+\usepackage{graphicx}
+%%%%%%%%%%%%%%%% end my additions to header
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+% TODO: Currently lineno needs to be loaded after amsmath because of conflict
+% https://github.com/latex-lineno/lineno/issues/5
+\usepackage{lineno} % add
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \usepackage{fontspec}
+  \ifxetex
+    \usepackage{xltxtra,xunicode}
+  \fi
+  \defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
+  \newcommand{\euro}{€}
+\fi
+% use microtype if available
+\IfFileExists{microtype.sty}{\usepackage{microtype}}{}
+\usepackage[]{natbib}
+\bibliographystyle{plainnat}
+
+\ifxetex
+  \usepackage[setpagesize=false, % page size defined by xetex
+              unicode=false, % unicode breaks when used with xetex
+              xetex]{hyperref}
+\else
+  \usepackage[unicode=true]{hyperref}
+\fi
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={},
+            pdftitle={Which fifteen-minutes neighborhoods are dead-ends? An analysis of the network attributes of fifteen-minute pedsheds},
+            colorlinks=false,
+            urlcolor=blue,
+            linkcolor=magenta,
+            pdfborder={0 0 0}}
+
+\setcounter{secnumdepth}{5}
+% Pandoc toggle for numbering sections (defaults to be off)
+
+
+% tightlist command for lists without linebreak
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+
+
+
+
+
+\begin{document}
+
+
+\begin{frontmatter}
+
+  \title{Which fifteen-minutes neighborhoods are dead-ends? An analysis
+of the network attributes of fifteen-minute pedsheds}
+    \author[University One]{Author One%
+  \corref{cor1}%
+  \fnref{1}}
+   \ead{a1@example.com} 
+    \author[University Two]{Author Two%
+  %
+  }
+   \ead{a2@example.com} 
+    \author[University One]{Author Three%
+  %
+  \fnref{2}}
+   \ead{a3@example.com} 
+    \author[University One]{Author Four%
+  %
+  \fnref{2}}
+   \ead{a4@example.com} 
+      \affiliation[University One]{
+    organization={Department},addressline={1 main
+street},city={City},postcode={123456},state={State},country={Country},}
+    \affiliation[University Two]{
+    organization={Department},addressline={2 main
+street},city={City},postcode={2054},country={Country},}
+    \cortext[cor1]{Corresponding author}
+    \fntext[1]{This is the first author footnote.}
+    \fntext[2]{Another author footnote.}
+  
+  \begin{abstract}
+  Fifteen-minutes neihborhoods, a form of normative chronourbanism based
+  on cumulative opportunities, has gained recognized as a way to reduce
+  the need for motorized travel, and increase the livability,
+  convenience, and health of the public. At the core of this concept is
+  a pedshed, an area defined by the walkable isochrone of the eponymous
+  fifteen minutes. As the idea of fifteen-minutes neighborhoods develops
+  traction in policy and planning circles, it seems timely to revisit
+  the way street network design can support---or obstruct---the stated
+  goal of preserving or creating walkable neighborhoods with essential
+  amenities. In this paper we examine a sample (\(n=834\)) of
+  fifteen-minutes pedsheds in Hamilton, a medium-sized city in Canada,
+  and how their sizes relate to the attributes of the transportation
+  network. The analysis reveals that network design in suburban Hamilton
+  conspires against the creating of fifteen-minutes neighborhoods. Much
+  of urban Hamilton, in contrast, already has the characteristics of
+  fifteen-minutes neighborhoods. The research points to elements of
+  network design that can help to discriminate between candidate
+  neighborhoods and dead-ends, and that can provide parameters for the
+  design of new developments.
+  \end{abstract}
+    \begin{keyword}
+    Fifteen-minutes
+neighborhoods \sep Pedshed \sep Walkability \sep Accessibility \sep 
+    Network analysis
+  \end{keyword}
+  
+ \end{frontmatter}
+
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+``Il faut oublier la traversée de Paris d'est en ouest en
+voiture''\footnote{ ``We must forget about crossing Paris from east to
+  west by car''} \citep{alimi2020}.
+
+\citet{knight2018walkable} \citet{liu2022toward}
+\citet{pozoukidou2021fifteen} \citet{weng2019fifteen}
+
+\renewcommand\refname{References}
+\bibliography{../bibliography/bibliography.bib}
+
+
+\end{document}

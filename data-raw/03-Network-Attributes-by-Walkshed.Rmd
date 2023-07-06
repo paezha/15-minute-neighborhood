@@ -21,11 +21,12 @@ Load packages:
 ```{r warning=FALSE, message=FALSE}
 library(dplyr) # A Grammar of Data Manipulation
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
-library(igraph)
+library(igraph) # Network Analysis and Visualization
+library(patchwork) # The Composer of Plots
 library(skimr) # Compact and Flexible Summaries of Data
 library(sf) # Simple Features for R
-library(sfnetworks)
-library(tidyr)
+library(sfnetworks) # Tidy Geospatial Networks
+library(tidyr) # Tidy Messy Data
 ```
 
 ```{r}
@@ -194,20 +195,6 @@ Transitivity: it is the probability that the neighbors of a node are neighbors b
 
 Motifs (calculated for size 3 and 4): It indicates the presence of particular subgraphs that repeat themselves. In other words, a graph with a large number of motifs will tend to have few unique elements (some elements happen again, again, and again). A graph with many unique elements will have few motifs (repetitive patterns).
 
-Motfis (from igraph help pages)
-```{r}
-g <- sample_pa(100)
-motifs(g, 3)
-count_motifs(g, 3)
-sample_motifs(g, 3)
-
-```
-
-```{r}
-pattern <- graph.full(3)
-my.graph <- grg.game(100, 0.2) 
-```
-
 Example of pedshed with network:
 ```{r}
 sample_walkshed <- sample.int(nrow(walksheds_da), 1)
@@ -226,5 +213,458 @@ ggplot() +
   geom_sf(data = wsnet) +
   theme_void()
 
+```
+
+Explore the motifs. First, extract a walkshed and convert it to sfnetworks class:
+```{r}
+sample_walkshed <- sample.int(nrow(walksheds_da), 1)
+
+wsnet <- hamilton_edges |>
+  st_filter(
+    walksheds_da[sample_walkshed,],
+    .predicate = st_intersects)
+
+# Extract the full edges that were found to intersect the walkshed
+wsnet <- hamilton_edges |> 
+  filter(edge_index %in% wsnet$edge_index)
+
+# Convert to sfnetwork
+wsnet <- as_sfnetwork(wsnet)
+
+ggplot() +
+  geom_sf(data = walksheds_da[sample_walkshed,]) +
+  geom_sf(data = wsnet |>
+            activate(edges) |>
+            st_as_sf()
+  ) +
+  theme_void()
+
+```
+
+Note that there are 16 classes of directed isomorphic graphs of size 3. Here numbers 1 and 15 are obtained:
+```{r}
+# Size is the number of nodes, number is the isomorphic class, directed true
+g1 <- graph_from_isomorphism_class(size = 3, number = 1, directed = TRUE)
+g15 <- graph_from_isomorphism_class(size = 3, number = 15, directed = TRUE)
+```
+
+Plot isomorphism:
+```{r}
+ggraph(g1, layout = "linear", circular = TRUE) +
+  geom_edge_fan2(arrow = arrow(length = unit(5, 'mm')),
+                 end_cap = circle(5, 'mm'),
+                 lineend = "round", 
+                 width = 1) + 
+  geom_node_point(size = 5) +
+  coord_equal() +
+  theme_void()
+
+```
+
+Obtain all directed isomorphisms of size 3:
+```{r}
+size_3_iso <- purrr::map(1:15,
+                         ~graph_from_isomorphism_class(size = 3, 
+                                                       number = .x, 
+                                                       directed = TRUE))
+```
+
+
+```{r}
+ggraph(size_3_iso[[10]], layout = "linear", circular = TRUE) +
+  geom_edge_fan2(arrow = arrow(length = unit(5, 'mm')),
+                 end_cap = circle(5, 'mm'),
+                 lineend = "round", 
+                 width = 1) + 
+  geom_node_point(size = 5) +
+  coord_equal() +
+  theme_void()
+```
+
+Motifs of size 3 in wsnet:
+```{r}
+motifs(wsnet)
+```
+
+The most common by far is class 10.
+
+```{r}
+count_motifs(wsnet)
+```
+
+Initialize a data frame to save the motif counts:
+```{r}
+walksheds_da_motif_3_count <- data.frame(matrix(0, nrow = nrow(walksheds_da), ncol = 16))
+
+walksheds_da_motif_3_count <- walksheds_da_motif_3_count |>
+  rename_with(~ paste0("iso_class_", c(0:15)), starts_with("X"))
+
+DA <- numeric(length = nrow(walksheds_da))
+```
+
+Compute the number of motifs of each class in the walksheds:
+```{r warning=FALSE}
+# Time algorithm
+start.time <- Sys.time()
+
+for(i in 1:nrow(walksheds_da)){
+  wsnet <- hamilton_edges |>
+    st_filter(
+      walksheds_da[i,],
+      .predicate = st_intersects)
+  
+  wsnet <- hamilton_edges |> 
+    filter(edge_index %in% wsnet$edge_index)
+  
+  # Convert to sfnetwork
+  wsnet <- as_sfnetwork(wsnet)
+  walksheds_da_motif_3_count[i,] <- motifs(wsnet)
+  DA[i] <- walksheds_da$GeoUID
+}
+
+walksheds_da_motif_3_count <- cbind(DA,
+                                    walksheds_da_motif_3_count)
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+```
+
+Time difference:
+```{r}
+time.taken
+```
+
+Joing urban fabric type:
+```{r}
+walksheds_da_motif_3_count <- walksheds_da_motif_3_count |>
+  rename(GeoUID = DA) |>
+  left_join(walksheds_da |>
+              st_drop_geometry(),
+            by = "GeoUID") |>
+  select(GeoUID,
+         Type,
+         starts_with("iso_class"))
+```
+
+
+Save the data object:
+```{r}
+save(walksheds_da_motif_3_count, file = "walksheds_da_motif_3_count.rda", compress = "xz")
+```
+
+Summary of motif counts:
+```{r}
+summary(walksheds_da_motif_3_count)
+```
+
+The only motifs present are class 10 and class 15:
+```{r}
+iso_3_10_plot <- ggraph(size_3_iso[[10]], layout = "linear", circular = TRUE) +
+  geom_edge_fan2(arrow = arrow(length = unit(5, 'mm')),
+                 end_cap = circle(5, 'mm'),
+                 lineend = "round", 
+                 width = 1) + 
+  geom_node_point(size = 5) +
+  coord_equal() +
+  theme_void()
+
+iso_3_15_plot <- ggraph(size_3_iso[[15]], layout = "linear", circular = TRUE) +
+  geom_edge_fan2(arrow = arrow(length = unit(5, 'mm')),
+                 end_cap = circle(5, 'mm'),
+                 lineend = "round", 
+                 width = 1) + 
+  geom_node_point(size = 5) +
+  coord_equal() +
+  theme_void()
+
+iso_3_10_plot + iso_3_15_plot
+```
+
+Check walksheds with low number of motifs (normalized):
+```{r}
+d <- walksheds_da_net_vars |>
+                  drop_na() |>
+  mutate(normalized_motifs_3 = motifs_3/n_edges,
+         normalized_motifs_4 = motifs_4/n_edges)
+
+d |> filter(normalized_motifs_3 < 0.7)
+```
+
+Choose a walkshed with low number of motifs:
+```{r}
+ID <- "35250947" #"35250992"# "35250317"
+
+wsnet <- hamilton_edges |>
+  st_filter(
+    walksheds_da |> filter(GeoUID == ID),
+    .predicate = st_intersects)
+
+# Extract the full edges that were found to intersect the walkshed
+wsnet <- hamilton_edges |> 
+  filter(edge_index %in% wsnet$edge_index)
+
+# Convert to sfnetwork
+wsnet <- as_sfnetwork(wsnet)
+```
+
+```{r}
+ggplot()  +
+  geom_sf(data = walksheds_da |>
+            filter(GeoUID == ID),
+          color = "blue",
+          fill = "blue") +
+  geom_sf(data = urban_hammer_da |> 
+            filter(GeoUID == ID), 
+          fill = "red") +
+  geom_sf(data = wsnet |> 
+            activate(edges) |> 
+            st_as_sf())
+```
+
+Find the motifs of class 10 and 15 in wsnet:
+```{r}
+iso_class_10_list <- subgraph_isomorphisms(size_3_iso[[10]], 
+                                           wsnet, 
+                                           method = "vf2")
+
+iso_class_15_list <- subgraph_isomorphisms(size_3_iso[[15]], 
+                                           wsnet, 
+                                           method = "vf2")
+```
+
+The elements in the list that results are triads of nodes. 
+```{r}
+subgraph(wsnet, vids = iso_class_10_list[[1]]) |>
+  as_sfnetwork()
+```
+
+Extract the isomorphs of class 10 from the network:
+```{r message=FALSE}
+# This is the first one in the list
+motifs_class_10 <- subgraph(wsnet, vids = iso_class_10_list[[1]]) |>
+  as_sfnetwork()
+
+# Join every other isomorph in the list
+for(i in 2:length(iso_class_10_list)){
+  motifs_class_10 <- st_network_join(motifs_class_10,
+                   subgraph(wsnet, vids = iso_class_10_list[[i]]) |>
+                     as_sfnetwork())
+}
+```
+
+Extract the isomorphs of class 15 from the network:
+```{r message=FALSE}
+# This is the first one in the list
+motifs_class_15 <- subgraph(wsnet, vids = iso_class_15_list[[1]]) |>
+  as_sfnetwork()
+
+# Join every other isomorph in the list
+for(i in 2:length(iso_class_15_list)){
+  motifs_class_15 <- st_network_join(motifs_class_15,
+                   subgraph(wsnet, vids = iso_class_15_list[[i]]) |>
+                     as_sfnetwork())
+}
+```
+
+Plot the motifs of class 10:
+```{r}
+ggplot() + 
+  geom_sf(data = walksheds_da |>
+            filter(GeoUID == ID)) +
+  geom_sf(data = wsnet |>
+            activate(edges) |>
+            st_as_sf()) +
+  geom_sf(data = motifs_class_10 |>
+            activate(edges) |>
+            st_as_sf(),
+          color = "red") +
+  geom_sf(data = motifs_class_15 |>
+            activate(edges) |>
+            st_as_sf(),
+          color = "blue") +
+  theme_void()
+```
+
+Almost all elements of the network are part of a motif. But the number of motifs is low, which suggests that a large number of dead ends tends to reduce the number of motifs.
+
+Degree distribution:
+```{r}
+ggplot(data = data.frame(degree = degree(wsnet)) |>
+         mutate(degree = factor(degree,
+                                ordered = TRUE))|>
+         group_by(degree) |>
+         summarize(count = n())) +
+  geom_col(aes(x = degree, y = count))
+```
+
+Check walksheds with high number of motifs (normalized):
+```{r}
+d |> filter(normalized_motifs_3 > 1.07)
+```
+
+Choose a walkshed with high number of motifs:
+```{r}
+ID <- "35250675" #
+
+wsnet <- hamilton_edges |>
+  st_filter(
+    walksheds_da |> filter(GeoUID == ID),
+    .predicate = st_intersects)
+
+# Extract the full edges that were found to intersect the walkshed
+wsnet <- hamilton_edges |> 
+  filter(edge_index %in% wsnet$edge_index)
+
+# Convert to sfnetwork
+wsnet <- as_sfnetwork(wsnet)
+```
+
+Find the motifs of class 10 and 15 in wsnet:
+```{r}
+iso_class_10_list <- subgraph_isomorphisms(size_3_iso[[10]], 
+                                           wsnet, 
+                                           method = "vf2")
+
+iso_class_15_list <- subgraph_isomorphisms(size_3_iso[[15]], 
+                                           wsnet, 
+                                           method = "vf2")
+```
+
+
+Extract the isomorphs of class 10 from the network:
+```{r message=FALSE}
+# This is the first one in the list
+motifs_class_10 <- subgraph(wsnet, vids = iso_class_10_list[[1]]) |>
+  as_sfnetwork()
+
+# Join every other isomorph in the list
+for(i in 2:length(iso_class_10_list)){
+  motifs_class_10 <- st_network_join(motifs_class_10,
+                   subgraph(wsnet, vids = iso_class_10_list[[i]]) |>
+                     as_sfnetwork())
+}
+```
+
+Extract the isomorphs of class 15 from the network:
+```{r message=FALSE}
+# This is the first one in the list
+motifs_class_15 <- subgraph(wsnet, vids = iso_class_15_list[[1]]) |>
+  as_sfnetwork()
+
+# Join every other isomorph in the list
+for(i in 2:length(iso_class_15_list)){
+  motifs_class_15 <- st_network_join(motifs_class_15,
+                   subgraph(wsnet, vids = iso_class_15_list[[i]]) |>
+                     as_sfnetwork())
+}
+```
+
+Plot the motifs of class both classes:
+```{r}
+ggplot() + 
+  geom_sf(data = walksheds_da |>
+            filter(GeoUID == ID)) +
+  geom_sf(data = wsnet |>
+            activate(edges) |>
+            st_as_sf()) +
+  geom_sf(data = motifs_class_10 |>
+            activate(edges) |>
+            st_as_sf(),
+          color = "red") +
+  geom_sf(data = motifs_class_15 |>
+            activate(edges) |>
+            st_as_sf(),
+          color = "blue") +
+  theme_void()
+```
+
+Almost all elements of the network are part of a motif. But the number of motifs is low, which suggests that a large number of dead ends tends to reduce the number of motifs.
+
+Degree distribution:
+```{r}
+ggplot(data = data.frame(degree = degree(wsnet)) |>
+         mutate(degree = factor(degree,
+                                ordered = TRUE))|>
+         group_by(degree) |>
+         summarize(count = n())) +
+  geom_col(aes(x = degree, y = count))
+```
+
+
+
+```{r}
+wsnet <- hamilton_edges |>
+  st_filter(
+    walksheds_da |> filter(GeoUID == ID),
+    .predicate = st_intersects)
+
+# Extract the full edges that were found to intersect the walkshed
+wsnet <- hamilton_edges |> 
+  filter(edge_index %in% wsnet$edge_index)
+
+# Convert to sfnetwork
+wsnet <- as_sfnetwork(wsnet)
+```
+
+Compute the degree distribution in the walksheds:
+```{r warning=FALSE}
+# Time algorithm
+start.time <- Sys.time()
+
+# Initialize a dataframe 
+walksheds_da_degree_dist <- data.frame(GeoUID = numeric(), degree = numeric())
+
+for(i in 1:nrow(walksheds_da)){
+  wsnet <- hamilton_edges |>
+    st_filter(
+      walksheds_da[i,],
+      .predicate = st_intersects)
+  
+  wsnet <- hamilton_edges |> 
+    filter(edge_index %in% wsnet$edge_index)
+  
+  # Convert to sfnetwork
+  wsnet <- as_sfnetwork(wsnet)
+  walksheds_da_degree_dist <- rbind(walksheds_da_degree_dist,
+                                    data.frame(GeoUID = walksheds_da$GeoUID[i],
+                                               degree = degree(wsnet)))
+}
+
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+```
+
+Time difference:
+```{r}
+time.taken
+```
+
+Join urban fabric types:
+```{r}
+walksheds_da_degree_dist <- walksheds_da_degree_dist |> 
+  left_join(walksheds_da |>
+              st_drop_geometry(),
+            by = "GeoUID")
+```
+
+Save object:
+```{r}
+save(walksheds_da_degree_dist, 
+     file = "walksheds_da_degree_dist.rda", 
+     compress = "xz")
+```
+
+
+```{r}
+walksheds_da_degree_dist |>
+  mutate(degree = factor(degree, 
+                         ordered = TRUE)) |>
+         group_by(Type, degree) |>
+         summarize(count = n(),
+                   .groups = "drop") |>
+  ggplot() +
+  geom_col(aes(x = degree, y = count, fill = Type), position = "dodge")
 ```
 
