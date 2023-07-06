@@ -48,7 +48,7 @@ abstract: |
   A relevant concern is identifying types of streetscapes that can plausibly support 15MNs. To address this question, we investigate the current accessibility situation in parts of Canada’s largest metropolitan region. The analysis consists of two parts, with positive and normative aspects 15-minute walking neighborhoods are studied, and their accessibility levels assessed (positive analysis). Maximal opportunity landscapes are then used to simulate equivalent opportunity landscapes throughout the region. Accessibility is then reanalyzed from the normative perspective of the provision of opportunities. The results of this analysis are finally correlated to neighborhood network attributes, including connectivity, centrality, and clustering. The results of this investigation provide valuable information about neighborhoods, their morphology and potential to support the aspirational goal of providing opportunities within 15-minute walks for their residents. This information can help to identify target neighborhoods for planning interventions, as well as neighborhoods for whom the 15-minute ideal could be little more than wishful thinking.
 
 bibliography: 
-  - '`r system(kpsewhich bibliography.bib)`'
+  - "`r system('kpsewhich ../bibliography/bibliography.bib', intern=TRUE)`"
 biblio-style: spphys
 # bibstyle options spbasic(default), spphys, spmpsci
 output: rticles::springer_article
