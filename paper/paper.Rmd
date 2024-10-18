@@ -112,7 +112,7 @@ To see the details of the destinations see notebook 02-OSM-Amenities.Rmd in fold
 
 # Methods
 
-The method proposed involves to study 15-minute walking neighborhoods in two stages. The first stage comprises assessing accessibility levels from the normative perspective of the provision of opportunities. In the second stage, the results of this analysis are correlated to neighborhood network attributes, including connectivity, centrality, and clustering.
+The proposed method involves studying 15-minute walking neighborhoods in two stages. The first stage assesses accessibility levels from a normative perspective, focusing on the provision of opportunities. In the second stage, the results are correlated with neighborhood network attributes, including connectivity, centrality, and clustering.
 
 ## Calculation of accessibility levels
 
