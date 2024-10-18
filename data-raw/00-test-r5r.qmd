@@ -1,0 +1,108 @@
+---
+title: "Test r5r"
+author: "AP"
+format: html
+---
+
+## Test package
+
+This notebook is used to test the package [{r5r}](), which is used for routing and generating isochrones.
+
+## Running Code
+
+It is important to allocate memory before launching {r5r}:
+```{r}
+# allocate RAM memory to Java
+options(java.parameters = "-Xmx2G")
+```
+
+1) build transport network, pointing to the path where OSM and GTFS data are stored
+```{r}
+library(r5r)
+path <- system.file("extdata/poa", package = "r5r")
+r5r_core <- setup_r5(data_path = path, verbose = FALSE)
+```
+
+2) load origin/destination points and set arguments
+```{r}
+points <- read.csv(system.file("extdata/poa/poa_hexgrid.csv", package = "r5r"))
+mode <- c("WALK", "TRANSIT")
+max_walk_time <- 30   # minutes
+max_trip_duration <- 60 # minutes
+departure_datetime <- as.POSIXct("13-05-2019 14:00:00",
+                                 format = "%d-%m-%Y %H:%M:%S")
+```
+
+3.1) calculate a travel time matrix
+```{r}
+ttm <- travel_time_matrix(r5r_core = r5r_core,
+                          origins = points,
+                          destinations = points,
+                          mode = mode,
+                          departure_datetime = departure_datetime,
+                          max_walk_time = max_walk_time,
+                          max_trip_duration = max_trip_duration)
+```
+
+
+3.2) or get detailed info on multiple alternative routes
+```{r}
+det <- detailed_itineraries(r5r_core = r5r_core,
+                            origins = points[370, ],
+                            destinations = points[200, ],
+                            mode = mode,
+                            departure_datetime = departure_datetime,
+                            max_walk_time = max_walk_time,
+                            max_trip_duration = max_trip_duration,
+                            shortest_path = FALSE,
+                            drop_geometry = FALSE)
+```
+
+4) Calculate number of schools accessible within 20 minutes 
+```{r}
+access <- accessibility(r5r_core = r5r_core,
+                        origins = points,
+                        destinations = points,
+                        opportunities_colname = "schools",
+                        decay_function = "step",
+                        cutoffs = 21,
+                        mode =  c("WALK", "TRANSIT"),
+                        verbose = FALSE)
+```
+
+
+5} Calculate isochrones
+```{r}
+ttm <- travel_time_matrix(r5r_core = r5r_core,
+                          origins = points,
+                          destinations = points,
+                          mode = mode,
+                          departure_datetime = departure_datetime,
+                          max_walk_time = max_walk_time,
+                          max_trip_duration = max_trip_duration)
+
+
+iso <- isochrone(
+  r5r_core = r5r_core,
+  origins = points,
+  mode = "WALK",
+  mode_egress = "WALK",
+  cutoffs = c(0, 15),
+  sample_size = 0.8,
+  departure_datetime = departure_datetime,
+  time_window = 10L,
+  max_walk_time = 15,
+  max_bike_time = 30,
+  max_car_time = 120,
+  max_trip_duration = 120L,
+  walk_speed = 3.6,
+  bike_speed = 12,
+  max_rides = 3,
+  max_lts = 2,
+  draws_per_minute = 5L,
+  n_threads = Inf,
+  verbose = FALSE,
+  progress = TRUE
+)
+```
+

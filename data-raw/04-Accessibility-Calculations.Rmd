@@ -19,7 +19,9 @@ Load packages:
 ```{r warning=FALSE, message=FALSE}
 library(dplyr) # A Grammar of Data Manipulation
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
-library(h3)
+library(glue) # Interpreted String Literals
+library(h3) # R Bindings for H3
+library(here) # A Simpler Way to Find Your Files
 library(sf) # Simple Features for R
 library(skimr) # Compact and Flexible Summaries of Data
 library(tidyr) # Tidy Messy Data
@@ -28,11 +30,15 @@ library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination 
 
 ```{r}
 #load(file = "hamilton_net.rda")
-load(file = "amenities_points.rda")
-load(file = "urban_hammer_da.rda")
+load(file = paste0(here::here(), 
+                   "/data/amenities_points.rda"))
+load(file = paste0(here::here(), 
+                   "/data/urban_hammer_da.rda"))
 data(urban_types)
-load(file = "walksheds_da.rda")
-load(file = "walksheds_validation.rda")
+load(file = paste0(here::here(), 
+                   "/data/walksheds_da.rda"))
+load(file = paste0(here::here(), 
+                   "/data/walksheds_validation.rda"))
 ```
 
 
@@ -66,8 +72,13 @@ time.taken
 
 Save amenities by walkshed:
 ```{r}
-save(amenities_walksheds_da, file = "amenities_walkshed_da.rda", compress = "xz")
-save(amenities_walksheds_validation, file = "amenities_walkshed_validation.rda", compress = "xz")
+save(amenities_walksheds_da, 
+     file = paste0(here::here(), 
+                   "/data/amenities_walkshed_da.rda"),
+     compress = "xz")
+save(amenities_walksheds_validation, file = paste0(here::here(), 
+                   "/data/amenities_walkshed_validation.rda"),
+     compress = "xz")
 ```
 
 Summary of amenity categories by DA and Type:
@@ -299,10 +310,11 @@ ggplot()  +
 
 Distance to amenities:
 ```{r}
-load("ttm_walk_da.rda")
+load(paste0(here::here(), 
+                   "/data/ttm_walk_da.rda"))
 ```
 
-
+Summary of amenities by h3 geometry:
 ```{r}
 amenities_by_h3 <- amenities_points |>
   st_drop_geometry() |>
@@ -310,7 +322,6 @@ amenities_by_h3 <- amenities_points |>
   summarize(n_amenities = n(),
             .groups = "drop")
 ```
-
 
 Join the amenities to the travel time matrix by means of the h3 indices:
 ```{r}
@@ -369,13 +380,13 @@ For all destinations this is the equation:
 $$
 \log(Y) = 1.282 - 0.048 \cdot t
 $$
+
 For all destinations this is the equation:
 $$
 \log(Y) = 1.035 - 0.032 \cdot t
 $$
 
 $Y$ is the percentage of trips and $t$ is the time in minutes.
-
 ```{r}
 ggplot() +
   geom_function(fun = function(x) exp(1.282)*exp(-0.048)^x,
@@ -391,4 +402,5 @@ The median of the minimum distance to any amenity in urban walksheds is 4.00 and
 ```{r}
 exp(1.282)*exp(-0.048)^6.0/exp(1.282)*exp(-0.048)^4.0
 ```
+
 

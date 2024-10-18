@@ -20,7 +20,9 @@ Load packages:
 library(dplyr) # A Grammar of Data Manipulation
 library(forcats) # Tools for Working with Categorical Variables (Factors)
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(glue) # Interpreted String Literals
 library(h3) # R Bindings for H3
+library(here) # A Simpler Way to Find Your Files
 library(osmdata) # Import 'OpenStreetMap' Data as Simple Features or Spatial Objects
 library(purrr) # Functional Programming Tools
 library(sf) # Simple Features for R
@@ -195,11 +197,22 @@ amenities_points$h3_index <- amenities_h3
 
 Save the data objects:
 ```{r}
-save(sustenance, file = "sustenance.rda", compress = "xz")
-save(education, file = "education.rda", compress = "xz")
-save(financial, file = "financial.rda", compress = "xz")
-save(healthcare, file = "healthcare.rda", compress = "xz")
-save(amenities_points, file = "amenities_points.rda", compress = "xz")
+save(sustenance, 
+     file = paste0(here::here(), 
+                   "/data/sustenance.rda"),
+     compress = "xz")
+save(education, file = paste0(here::here(), 
+                   "/data/education.rda"),
+     compress = "xz")
+save(financial, file = paste0(here::here(), 
+                   "/data/financial.rda"),
+     compress = "xz")
+save(healthcare, file = paste0(here::here(), 
+                   "/data/healthcare.rda"),
+     compress = "xz")
+save(amenities_points, file = paste0(here::here(), 
+                   "/data/amenities_points.rda"),
+     compress = "xz")
 ```
 
 Append type of urban fabric to amenities:
@@ -242,6 +255,7 @@ data.frame(suburban = suburban_density,
             urban_density = set_units(urban.Freq, 1/km2), 
             ratio)
 ```
+
 
 
 

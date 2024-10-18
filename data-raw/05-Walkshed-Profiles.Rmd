@@ -14,6 +14,7 @@ In this document we profile the ped sheds based on their network attributes.
 # Preliminaries
 
 Load packages:
+
 ```{r warning=FALSE, message=FALSE}
 library(broom) # Convert Statistical Objects into Tidy Tibbles
 library(dplyr) # A Grammar of Data Manipulation
@@ -34,29 +35,32 @@ library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination 
 ```
 
 Load data:
+
 ```{r}
-load(file = "amenities_walkshed_da.rda")
-load(file = "hamilton_net.rda")
-load(file = "urban_hammer_da.rda")
+load(file = glue::glue(here::here(), "/data/amenities_walkshed_da.rda"))
+load(file = glue::glue(here::here(), "/data/hamilton_net.rda"))
+load(file = glue::glue(here::here(), "/data/urban_hammer_da.rda"))
 data("urban_types")
-load(file = "walksheds_da.rda")
-load(file = "walksheds_da_net_vars.rda")
+load(file = glue::glue(here::here(), "/data/walksheds_da.rda"))
+load(file = glue::glue(here::here(), "/data/walksheds_da_net_vars.rda"))
 ```
 
 ## Classification tree
 
 The aim is to train a classification tree to profile urban and suburban walksheds based on the attributes of the network. We need to drop 1 observation that has an NA in `transitivity`:
+
 ```{r}
 d <- walksheds_da_net_vars |>
-                  drop_na() |>
+  select(-girth) |>
+  drop_na() |>
   mutate(normalized_motifs_3 = motifs_3/n_edges,
          normalized_motifs_4 = motifs_4/n_edges)
 ```
 
-
-We use a technique with evolutionary trees - an alternative to classification trees that is less affecte by the greediness of the algorithm. Since evolutionary trees have some randomness (for the initial values), we can try several to find whether there are patterns. In this case we try four different random seed. 
+We use a technique with evolutionary trees - an alternative to classification trees that is less affected by the greediness of the algorithm. Since evolutionary trees have some randomness (for the initial values), we can try several to find whether there are patterns. In this case we try four different random seed.
 
 Tree 1 with seed 1 (912571):
+
 ```{r}
 seed1 <- sample.int(1000000, 1)
 #seed1 <- 908544
@@ -67,6 +71,7 @@ plot(tree1)
 ```
 
 Tree 2 with seed 2 (94766):
+
 ```{r}
 seed2 <- sample.int(1000000, 1)
 #seed2 <- 669402
@@ -78,6 +83,7 @@ plot(tree2)
 ```
 
 Tree 3 with seed 3 (46125):
+
 ```{r}
 seed3 <- sample.int(1000000, 1)
 #seed3 <- 853251
@@ -89,6 +95,7 @@ plot(tree3)
 ```
 
 Tree 4 with seed 4 (556090)
+
 ```{r}
 seed4 <- sample.int(1000000, 1)
 #seed4 <- 707633
@@ -100,6 +107,7 @@ plot(tree4)
 ```
 
 Create a function to estimate the missclassification rate and the evaluation function:
+
 ```{r}
 mc <- function(obj) 1 - mean(predict(obj) == d$Type)
 
@@ -116,6 +124,7 @@ round(sapply(trees, function(obj) c("misclassification" = mc(obj), "evaluation f
 All trees have similar fit.
 
 Plot the trees:
+
 ```{r}
 tree1_plot <- ggparty(tree1) +
   geom_edge() +
@@ -150,12 +159,11 @@ tree4_plot <- ggparty(tree4) +
 
 Notice that edge_density and normalized_motifs_3 are the dominant attributes in the classification trees. Trees 1, 3, and 4 have the same general structure, and in fact trees 3 and 4 are identical. Based on this we choose to use `tree3`.
 
-
 Check the break labels of `tree3` to round:
+
 ```{r}
 ggparty(tree3)$data$breaks_label
 ```
-
 
 ```{r add-classification-to-data}
 #| include: false
@@ -197,12 +205,9 @@ d |>
   tab_options(table.font.size = 30)
 ```
 
-
 Typically suburban networks contain many unique patterns (few motifs).
 
-0.00591859212548868 & normalized_motifs_3 < 0.86734693877551 ~ "Leaf 1",
-                          edge_density < 0.00591859212548868 & normalized_motifs_3 >= 0.86734693877551 ~ "Leaf 2",
-                          edge_density >= 0.00591859212548868 & normalized_motifs_3 < 0.967741935483871 ~ "Leaf 3",
+0.00591859212548868 & normalized_motifs_3 \< 0.86734693877551 \~ "Leaf 1", edge_density \< 0.00591859212548868 & normalized_motifs_3 \>= 0.86734693877551 \~ "Leaf 2", edge_density \>= 0.00591859212548868 & normalized_motifs_3 \< 0.967741935483871 \~ "Leaf 3",
 
 ```{r plot-leaf-1}
 set.seed(29919)
@@ -256,7 +261,6 @@ leaf_2_plot |>
 
 leaf_1_plot + plot_spacer() + leaf_3_plot
 ```
-
 
 Typically urban networks contain isomorphic patterns that repeat (large number of motifs).
 
@@ -312,7 +316,6 @@ leaf_4_plot |>
 
 leaf_2_plot + plot_spacer() + leaf_4_plot
 ```
-
 
 ## Analysis of pedshed areas as a function of network attributes
 
@@ -374,14 +377,14 @@ effect_motifs <- ggplot() +
 effect_transitivity + effect_motifs
 ```
 
+\<!-- Check the break labels of `tree3` to round:
 
-<!--
-Check the break labels of `tree3` to round:
 ```{r}
 ggparty(tree3)$data$breaks_label
 ```
 
 Plot the tree with the rounded break labels:
+
 ```{r}
 ggparty(tree3) +
   geom_edge() +
@@ -413,6 +416,7 @@ ggparty(tree3) +
 Find examples of ped sheds in each of the leafs and plot the network for illustration.
 
 Leaf 1:
+
 ```{r}
 
 seed <- sample.int(100000, 1)
@@ -433,6 +437,7 @@ st_intersection(hamilton_net$edges,
 ```
 
 Leaf 2 (urban):
+
 ```{r}
 seed <- sample.int(100000, 1)
 set.seed(seed)
@@ -452,6 +457,7 @@ st_intersection(hamilton_net$edges,
 ```
 
 Leaf 3 (suburban):
+
 ```{r}
 seed <- sample.int(100000, 1)
 set.seed(seed)
@@ -471,6 +477,7 @@ st_intersection(hamilton_net$edges,
 ```
 
 Leaf 4 (urban):
+
 ```{r}
 seed <- sample.int(100000, 1)
 set.seed(seed)
@@ -490,6 +497,7 @@ st_intersection(hamilton_net$edges,
 ```
 
 Add leaf labels to data:
+
 ```{r}
 d <- d |>
   mutate(leaf = case_when(transitivity < 0.0207311636201516 & motifs < 378 ~ "Leaf 1",
@@ -520,6 +528,7 @@ d |>
 But what about accessibility??
 
 Summary of amenity categories by DA and Type:
+
 ```{r}
 amenities_walksheds_summary <- amenities_walksheds |>
   drop_na() |>
@@ -535,8 +544,8 @@ amenities_walksheds_summary <- amenities_walksheds |>
               values_fill = 0)
 ```
 
-
 To map accessibility by category of amenity we first categorize the number of amenities:
+
 ```{r}
 amentities_da <-  urban_hammer_da |>
   select(GeoUID, Type.1) |>
@@ -558,8 +567,8 @@ amentities_da <-  urban_hammer_da |>
                                       ordered = TRUE))
 ```
 
-
 Plot:
+
 ```{r}
 amentities_da |>
   ggplot() +
@@ -574,12 +583,12 @@ amentities_da |>
 ```
 
 Pivot wider:
+
 ```{r}
 junk <- amentities_da |>
   pivot_wider(names_from = "Amenity_Category",
               values_from = "Number_of_Amenities")
 ```
-
 
 ```{r}
 junk2 <- d |>
@@ -593,7 +602,6 @@ junk2 <- d |>
 ```{r}
 summary(junk2 |> select(Sustenance:Library))
 ```
-
 
 ## Clusters: try self-organizing maps (SOM)
 
@@ -610,11 +618,9 @@ wsn.som <- trainSOM(x.data = walksheds_net_attributes |>
 wsn.som
 ```
 
-
 ```{r}
 plot(wsn.som, what="energy")
 ```
-
 
 ```{r}
 wsn.som$clustering
@@ -644,16 +650,13 @@ plot(wsn.som, what = "add", type = "pie", variable = walksheds_net_attributes$Ty
   guides(fill = guide_legend(title = "Type"))
 ```
 
-
 ```{r}
 quality(wsn.som)
 ```
 
-
 ```{r}
 plot(superClass(wsn.som))
 ```
-
 
 ```{r}
 wsn.som <- trainSOM(x.data = walksheds_net_attributes |>
@@ -671,10 +674,3 @@ plot(wsn.som, what="energy")
 ```{r}
 quality(wsn.som)
 ```
-
-
-
-
-
-
-

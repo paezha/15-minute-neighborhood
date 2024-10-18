@@ -37,7 +37,7 @@ footnote:
   - code: 2
     text: "Another author footnote."
 abstract: |
-  Fifteen-minutes neihborhoods, a form of normative chronourbanism based on cumulative opportunities, has gained recognized as a way to reduce the need for motorized travel, and increase the livability, convenience, and health of the public. At the core of this concept is a pedshed, an area defined by the walkable isochrone of the eponymous fifteen minutes. As the idea of fifteen-minutes neighborhoods develops traction in policy and planning circles, it seems timely to revisit the way street network design can support—or obstruct—the stated goal of preserving or creating walkable neighborhoods with essential amenities. In this paper we examine a sample ($n=834$) of fifteen-minutes pedsheds in Hamilton, a medium-sized city in Canada, and how their sizes relate to the attributes of the transportation network. The analysis reveals that network design in suburban Hamilton conspires against the creating of fifteen-minutes neighborhoods. Much of urban Hamilton, in contrast, already has the characteristics of fifteen-minutes neighborhoods. The research points to elements of network design that can help to discriminate between candidate neighborhoods and dead-ends, and that can provide parameters for the design of new developments.
+  Fifteen-minutes neihborhoods, a form of normative chronourbanism based on cumulative opportunities, has aroused interest as a way to reduce the need for motorized travel, and increase the livability, convenience, and health of the public. At the core of this concept is a pedshed, an area defined by the walkable isochrone of the eponymous fifteen minutes. As the idea of fifteen-minutes neighborhoods develops traction in policy and planning circles, it seems timely to revisit the way street network design can support—or obstruct—the stated goal of preserving or creating walkable neighborhoods with essential amenities. In this paper we examine a sample ($n=834$) of fifteen-minutes pedsheds in Hamilton, a medium-sized city in Canada, and how their sizes relate to the attributes of the transportation network. The analysis reveals that network design in suburban Hamilton conspires against the creating of fifteen-minutes neighborhoods. Much of urban Hamilton, in contrast, already has the characteristics of fifteen-minutes neighborhoods. The research points to elements of network design that can help to discriminate between candidate neighborhoods and dead-ends, and that can provide parameters for the design of new developments.
 
 keywords: 
   - Fifteen-minutes neighborhoods
@@ -60,6 +60,13 @@ output:
     citation_package: natbib
 ---
 
+```{r chunk-setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE)
+```
+
+
 # Introduction
 
 "Il faut oublier la traversée de Paris d'est en ouest en voiture"^[ "We must forget about crossing Paris from east to west by car"] [@alimi2020]. 
@@ -77,6 +84,8 @@ Automotive retrofits in traditional city centers:
 @liu2022toward
 @pozoukidou2021fifteen
 @weng2019fifteen
+
+
 
 
 
