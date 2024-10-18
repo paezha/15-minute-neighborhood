@@ -66,12 +66,122 @@ knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE)
 ```
 
+```{r load-packages}
+library(broom) # Convert Statistical Objects into Tidy Tibbles
+library(dplyr) # A Grammar of Data Manipulation
+library(evtree) # Evolutionary Learning of Globally Optimal Trees
+library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(glue) # Interpreted String Literals
+library(gt) # Easily Create Presentation-Ready Display Tables
+library(rpart) # Recursive Partitioning and Regression Trees
+library(rpart.plot) # Plot 'rpart' Models: An Enhanced Version of 'plot.rpart'
+library(patchwork) # The Composer of Plots
+library(partykit)
+library(tidyr) # Tidy Messy Data
+library(tree) # Classification and Regression Trees
+library(sf) # Simple Features for R
+library(skimr) # Compact and Flexible Summaries of Data
+library(SOMbrero) # SOM Bound to Realize Euclidean and Relational Outputs
+library(stringr) # Simple, Consistent Wrappers for Common String Operations
+library(units) # Measurement Units for R Vectors
+library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
+```
+
+```{r load-data}
+ # From package vaccHamilton
+data("urban_types")
+
+# Analysis-ready data. See notebooks in folder data-raw for details
+load(file = glue::glue(here::here(),
+                       "/data/amenities_walkshed_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/hamilton_net.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/urban_hammer_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_da_net_vars.rda"))
+```
+
+
+
+The aim is to train a classification tree to profile urban and suburban walksheds based on the attributes of the network. We need to drop 1 observation that has an NA in `transitivity`:
+
+```{r}
+d <- walksheds_da_net_vars |>
+  select(-girth) |>
+  drop_na() |>
+  mutate(normalized_motifs_3 = motifs_3/n_edges,
+         normalized_motifs_4 = motifs_4/n_edges)
+```
+
+```{r identify-network-characteristics-by-urban-type}
+#seed1 <- 908544
+set.seed(908544)
+ev.tree <- evtree::evtree(Type ~ ., 
+                data = d |> select(-c(GeoUID, 
+                                      motifs_3, 
+                                      motifs_4, 
+                                      n_edges, 
+                                      n_nodes)))
+
+ct.tree <- partykit::cttree.treeree(Type ~ ., 
+                data = d |> select(-c(GeoUID, 
+                                      motifs_3, 
+                                      motifs_4, 
+                                      n_edges, 
+                                      n_nodes)))
+
+rpart.tree <- rpart::rpart(Type ~ ., 
+                data = d |> select(-c(GeoUID, 
+                                      motifs_3, 
+                                      motifs_4, 
+                                      n_edges, 
+                                      n_nodes)))
+
+tree.tree <- tree::tree(Type ~ ., 
+                data = d |> select(-c(GeoUID, 
+                                      motifs_3, 
+                                      motifs_4, n_edges,
+                                      n_nodes)))
+
+
+```
+
+
+```{r}
+evtree.cm <- data.frame(obs = d$Type,
+                        pred = predict(ev.tree, newdata = d)) |>
+  mutate(obs = ifelse(obs == "Urban", 1, 0),
+         pred = ifelse(pred == "Urban", 1, 0))
+
+xtabs(obs ~ pred,
+      data = evtree.cm)
+```
+
+
+
+```{r}
+rpart.tree |>
+  as.party() |>
+ggparty() +
+  geom_edge() +
+  geom_edge_label(size = 2.5) +
+  geom_node_label(aes(label = splitvar ),
+                  id = "inner",
+                  size = 2, nudge_y = -0.022)
+```
+
+
 
 # Introduction
 
-"Il faut oublier la traversée de Paris d'est en ouest en voiture"^[ "We must forget about crossing Paris from east to west by car"] [@alimi2020]. 
+> "Il faut oublier la traversée de Paris d'est en ouest en voiture"^[ "We must forget about crossing Paris from east to west by car"]. 
+> --Anne Hidalgo
 
-With this declaration during her reelection campaign in 2020, Anne Hidalgo brought international attention to the concept of walkable fifteen-minutes neighborhoods. 
+With this declaration during her reelection campaign in 2020, Anne Hidalgo brought international attention to the concept of walkable fifteen-minutes neighborhoods [@alimi2020]. 
 
 
 <!-- 
@@ -84,6 +194,14 @@ Automotive retrofits in traditional city centers:
 @liu2022toward
 @pozoukidou2021fifteen
 @weng2019fifteen
+
+
+
+
+
+
+
+
 
 
 
