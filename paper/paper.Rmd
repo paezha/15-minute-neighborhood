@@ -195,7 +195,71 @@ Automotive retrofits in traditional city centers:
 @pozoukidou2021fifteen
 @weng2019fifteen
 
+15-minute walking neighborhoods
+are studied, and their accessibility levels assessed (positive analysis).
+Optimal opportunity landscapes are then used to simulate equivalent opportunity
+landscapes throughout the region. Accessibility is then reanalyzed from
+the normative perspective of the provision of opportunities. The results of
+this analysis are finally correlated to neighborhood network attributes, including
+connectivity, centrality, and clustering
 
+
+# Data
+
+The data used to study 15-minute walking neighborhoods in the city of Hamilton was obtained by extracting relevant attributes of the street network within 15-minute pedestrian sheds. These sheds were calculated for each neighborhood as polygon representations of origin-destination walking time matrices, with a maximum travel time of 15 minutes. Walkshed calculations were generated using the travel_time_matrix function for walking from the {r5r} R package. This process involved defining the street network, as well as the origins and destinations of walking trips. The street network data for these calculations was sourced from OpenStreetMap @OpenStreetMap2023.   
+
+<!--- 
+To see the details of the routing see notebook 01-OSM-Network-and-Routing.Rmd in folder data-raw
+--->
+
+The origins we established are proxies for the centroids of neighborhoods in the urban and peri-urban areas of the city of Hamilton. Specifically, these are the centroids of Hamilton's Dissemination Areas (DA). A DA is composed of one or more neighboring dissemination blocks and represents the smallest standard geographic area for which all census data are disseminated in Canada. Data on urban and sub-urban boundaries and DAs were retrieved from @HamiltonData2023.
+
+Destinations were established as the centroids of geohashed hexagons within the region of interest, where Hamilton's amenities are located, assuming that presence of amenities is a proxy to provision of opportunities. These destinations were chosen to avoid calculating travel times to each individual amenity. Instead, we used the geohashed polygons as destinations, identifying the amenities within each polygon and assuming that the centroid of each hexagon represents the location of the amenities within it. Specifically, we retrieved geohashing data for Hamilton using the H3 system (SOURCE) and generated child hexagons at resolution 13, with an average area of 43.87 $m^2$. Amenities location and attributes were downloaded from @OpenStreetMap2023.
+<!--- 
+To see the details of the destinations see notebook 02-OSM-Amenities.Rmd in folder data-raw
+--->
+
+
+# Methods
+
+The method proposed involves to study 15-minute walking neighborhoods in two stages. The first stage comprises assessing accessibility levels from the normative perspective of the provision of opportunities. In the second stage, the results of this analysis are correlated to neighborhood network attributes, including connectivity, centrality, and clustering.
+
+## Calculation of accessibility levels
+
+The indicator we use assesses levels of accessibility from a normative perspective, focusing on reachable opportunities as estimates of the potential for spatial interactions @Hansen1959. The advantage of using this form of accessibility analysis in this study is that it has been shown to be a valuable method for exploring the relationship between transportation infrastructure and urban structure @Handy1997.
+
+In this study, we calculate cumulative accessibility scores by summing the number of amenities within urban and suburban walksheds, categorized into four types: financial, sustenance, healthcare, and library.
+<!--- 
+To see the details of the accessibility calculations see notebook 04-Accessibility-Calculations.Rmd in folder data-raw
+--->
+
+## Walkshed network attributes by walkshed
+
+We characterize urban and suburban walksheds by means of their network attributes. We selected 11 of the network attributes from those proposed in R/igraph, a widely used network analysis R library @IgraphManual. 
+
+- Number of vertices.
+- Number of edges.
+- Diameter.
+- Radius.
+- Global efficiency: the global efficiency of a network is defined as the average of inverse. distances between all pairs of vertices.´
+- Edge density: the density of a graph is the ratio of the actual number of edges and the largest possible number of edges in the graph.
+- Mean distance: mean length of all the shortest paths from or to the vertices in the network.
+- Girth: the girth of a graph is the length of the shortest circle in it.
+Minimum cut of a graph: the minimum total weight of the edges needed to remove to separate the graph into (at least) two components. 
+- Edge connectivity: it is a measure of network vulnerability, minimum number of edges to remove to disconnect two nodes (there is no longer a path between them.
+- Transitivity: it is the probability that the neighbors of a node are neighbors between them. In a Manhattan-style grid this number will be low because there will be lots and lots of squares.
+- Motifs (calculated for size 3 and 4): It indicates the presence of particular subgraphs that repeat themselves. In other words, a graph with a large number of motifs will tend to have few unique elements (some elements happen again, again, and again). A graph with many unique elements will have few motifs (repetitive patterns).
+<!--- 
+To see the details of the attribute calculations see notebook 03-Network-Attributes-by-Walkshed.Rmd in folder data-raw
+--->
+
+## Walkshed classification
+
+To profile urban and suburban walksheds based on the attributes of the network we use a classification tree. In particular We use a technique with evolutionary trees - an alternative to classification trees that is less affected by the greediness of the algorithm. Since evolutionary trees have some randomness (for the initial values), we try several to find whether there are patterns. In this case we use four different random seeds. 
+
+<!--- 
+To see the details of walkshed profile calculations see notebook 06-Walkshed-Profiles.Rmd in folder data-raw
+--->
 
 
 

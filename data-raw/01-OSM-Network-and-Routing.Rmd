@@ -686,4 +686,3 @@ walksheds <- bind_rows(walksheds_da,
                        walksheds_validation) |>
   mutate(origin_type = rep(c("centroid", "non-centroid"), each = nrow(walksheds_da)))
 ```
-
