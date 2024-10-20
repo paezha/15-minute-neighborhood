@@ -66,12 +66,121 @@ knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE)
 ```
 
+```{r load-packages}
+library(broom) # Convert Statistical Objects into Tidy Tibbles
+library(cowplot)
+library(dplyr) # A Grammar of Data Manipulation
+library(evtree) # Evolutionary Learning of Globally Optimal Trees
+library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package
+library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(glue) # Interpreted String Literals
+library(gt) # Easily Create Presentation-Ready Display Tables
+library(rpart) # Recursive Partitioning and Regression Trees
+library(rpart.plot) # Plot 'rpart' Models: An Enhanced Version of 'plot.rpart'
+library(patchwork) # The Composer of Plots
+library(partykit)
+library(tidyr) # Tidy Messy Data
+library(tree) # Classification and Regression Trees
+library(sf) # Simple Features for R
+library(skimr) # Compact and Flexible Summaries of Data
+library(SOMbrero) # SOM Bound to Realize Euclidean and Relational Outputs
+library(stringr) # Simple, Consistent Wrappers for Common String Operations
+library(units) # Measurement Units for R Vectors
+library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
+```
+
+```{r load-data}
+ # From package vaccHamilton
+data("urban_types")
+
+# Analysis-ready data. See notebooks in folder data-raw for details
+load(file = glue::glue(here::here(),
+                       "/data/amenities_walkshed_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/hamilton_net.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/urban_hammer_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_da_net_vars.rda"))
+```
+
+
+
+The aim is to train a classification tree to profile urban and suburban walksheds based on the attributes of the network. We need to drop 1 observation that has an NA in `transitivity`:
+
+```{r prepare-data-frame-for-analysis}
+# Use normalized motifs because the number of motifs will depend on the number of edges. Divide by edges to obtain a comparable number
+# Remove girth which is problematic for modeling
+d <- walksheds_da_net_vars |>
+  select(-girth) |>
+  drop_na() |>
+  mutate(`Normalized Motifs (3)` = motifs_3/n_edges,
+         `Normalized Motifs (4)` = motifs_4/n_edges) |>
+  rename(`Edge Density` = edge_density)
+```
+
+```{r train-evolutionary-tree}
+#seed1 <- 908544
+set.seed(908544)
+ev.tree <- evtree::evtree(Type ~ ., 
+                data = d |> select(-c(GeoUID, 
+                                      motifs_3, 
+                                      motifs_4, 
+                                      n_edges, 
+                                      n_nodes)))
+```
+
+```{r create-tree-plot}
+party_plot <- ev.tree |>
+  ggparty() +
+  geom_edge() +
+  #geom_edge_label(size = 2.5) +
+  geom_node_label(aes(label = splitvar ),
+                  id = "inner",
+                  size = 2, nudge_y = -0.022) +
+  geom_node_splitvar(id = "inner", size = 4) +
+  geom_edge_label(mapping = aes(label = prettyNum(breaks_label, digits = 2)), size = 2.5) +
+  # # pass list to gglist containing all ggplot components we want to plot for each
+  # # (default: terminal) node
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = Type),
+                                        position = position_fill()),
+                               #xlab(""),
+                               #ylab(""),
+                               theme_void(),
+                               scale_fill_manual(name = "Urban fabric type",
+                    values = c("#FDAE61", "#1A9850")),
+                              theme(axis.text = element_blank())))
+```
+
+```{r legend-for-tree-plot}
+#creating a legend
+types_legend <- ggplot(d) +
+  geom_bar(aes(x = Type, 
+               fill = Type)) +
+  scale_fill_manual(name = "Urban fabric type",
+                    values = c("#FDAE61", "#1A9850"),
+              labels = c("Suburban", 
+                         "Urban") +
+                theme(legend.position = "bottom")) 
+types_legend <- cowplot::get_legend(types_legend)
+```     
+
+
+```{r tree-plot, fig.cap="\\label{fig:classification-tree}Classification tree of walksheds by type of urban fabric"}
+cowplot::plot_grid(party_plot, legd_renamed, 
+                   nrow = 2,
+                   align = "v", axis = "l", rel_heights = c(6, 1), rel_widths = c(1, 1))
+```
+
 
 # Introduction
 
-"Il faut oublier la traversée de Paris d'est en ouest en voiture"^[ "We must forget about crossing Paris from east to west by car"] [@alimi2020]. 
+> "Il faut oublier la traversée de Paris d'est en ouest en voiture"^[ "We must forget about crossing Paris from east to west by car"]. 
+> --Anne Hidalgo
 
-With this declaration during her reelection campaign in 2020, Anne Hidalgo brought international attention to the concept of walkable fifteen-minutes neighborhoods. 
+With this declaration during her reelection campaign in 2020, Anne Hidalgo brought international attention to the concept of walkable fifteen-minutes neighborhoods [@alimi2020]. 
 
 
 <!-- 
@@ -154,6 +263,14 @@ To see the details of walkshed profile calculations see notebook 06-Walkshed-Pro
 --->
 
 ## Walkshed size in urban and suburban areas
+
+
+
+
+
+
+
+
 
 
 # References {-}
