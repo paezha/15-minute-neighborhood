@@ -218,7 +218,7 @@ To see the details of the destinations see notebook 02-OSM-Amenities.Rmd in fold
 
 # Methods
 
-The proposed method involves studying 15-minute walking neighborhoods in two stages. In the first stage, we assess the accessibility levels of Hamilton's watersheds from a normative perspective, focusing on the provision of opportunities. In the second stage, we characterize the topology urban and suburban walksheds based on a set of network structure attributes. Finally, we analyze the effect of walkshed size on urban and suburban networks, and consequently, on access to opportunities. 
+The proposed method involves studying 15-minute walking neighborhoods in two stages. In the first stage, we assess the accessibility of Hamilton's walksheds from a normative perspective, focusing on the availability of opportunities. In the second stage, we analyze the topology of urban and suburban walksheds based on various network structure attributes. Finally, we examine whether there are differences in transportation network topology between urban and suburban areas, and analyze how these differences affect access to opportunities within walksheds.
 
 ## Calculation of accessibility levels
 
@@ -228,7 +228,6 @@ In this study, we calculate cumulative accessibility scores by summing the numbe
 <!--- 
 To see the details of the accessibility calculations see notebook 04-Accessibility-Calculations.Rmd in folder data-raw
 --->
-
 
 ## Urban and suburban walkshed modelling
 
@@ -256,7 +255,7 @@ To see the details of the attribute calculations see notebook 03-Network-Attribu
 
 To model urban and suburban walksheds, we employ a classification tree approach using the set topology attributes calculated in the previous stage. Classification trees are machine learning techniques used for both regression and classification, widely appreciated in various disciplines for their ability to represent knowledge through decision rules, making them easy to interpret and analyze @Loh2011 @James2013 @Paez2019Trees. Specifically, we utilize evolutionary trees, a variant of decision trees that are less constrained by the limitations of greedy top-down induction algorithms @Cha2009 @Kretowski2007 @Grubinger2014. Since evolutionary trees use a genetic algorithm that introduces randomness in the initial conditions, we run the model from the R package evtree @Grubinger2014 with 20 random seeds to identify the network variables that consistently characterize urban and suburban walksheds.
 
-Finally we 
+Finally we study effects in accessibility
 
 <!--- 
 To see the details of walkshed profile calculations see notebook 06-Walkshed-Profiles.Rmd in folder data-raw
