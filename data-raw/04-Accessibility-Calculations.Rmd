@@ -11,7 +11,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-In this document we calculate the amenities at the level of pedshed to get cumulative accessibility scores.
+In this document we calculate the amenities at the level of walkshed to get cumulative accessibility scores.
 
 # Preliminaries
 

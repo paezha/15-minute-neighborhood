@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 In this document we profile the ped sheds based on their network attributes.
 
+WARNING: Rerunning this notebook can cause the training of the evolutionary trees to deviate slightly from the reported results. 
+
 # Preliminaries
 
 Load packages:
@@ -35,7 +37,6 @@ library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination 
 ```
 
 Load data:
-
 ```{r}
 load(file = glue::glue(here::here(), "/data/amenities_walkshed_da.rda"))
 load(file = glue::glue(here::here(), "/data/hamilton_net.rda"))
@@ -43,71 +44,144 @@ load(file = glue::glue(here::here(), "/data/urban_hammer_da.rda"))
 data("urban_types")
 load(file = glue::glue(here::here(), "/data/walksheds_da.rda"))
 load(file = glue::glue(here::here(), "/data/walksheds_da_net_vars.rda"))
+load(file = glue::glue(here::here(), "/data/walksheds_validation.rda"))
+load(file = glue::glue(here::here(), "/data/walksheds_validation_net_vars.rda"))
 ```
+
+Bind the centroid and non-centroid walksheds (da and validations, but bound could be used in more imaginative ways for cross-validation, for example):
+```{r}
+walksheds <- bind_rows(walksheds_da,
+                       walksheds_validation) |>
+  mutate(origin_type = rep(c("centroid", "non-centroid"), each = nrow(walksheds_da)))
+```
+
+Obtain training and validation datasets by sampling from centroid and non-centroid walksheds:
+```{r}
+seed <- 3626425
+
+# slice_sample() will select one of two rows for each DA at random
+walksheds_train <- walksheds |>
+  group_by(GeoUID) |>
+  slice_sample(prop = 0.5)
+
+# The antijoin will keep the rows in walksheds that do not appear in walksheds_train
+walksheds_test <- walksheds |>
+  anti_join(walksheds_train |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+```
+
+Bind the centroid and non-centroid dataframes with walkshed network variables (da and validations):
+```{r}
+walksheds_net_vars <- bind_rows(walksheds_da_net_vars,
+                                walksheds_validation_net_vars) |>
+  mutate(origin_type = rep(c("centroid", "non-centroid"), each = nrow(walksheds_da)))
+```
+
+Now filter from the network variables to obtain training and test datasets:
+```{r}
+walksheds_train_net_vars <- walksheds_net_vars |>
+  semi_join(walksheds_train |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+
+walksheds_test_net_vars <- walksheds_net_vars |>
+  semi_join(walksheds_test |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+```
+
+Check these dataframes for NAs, inf, or other anomalies:
+```{r}
+summary(walksheds_train_net_vars)
+summary(walksheds_test_net_vars)
+```
+
+The girth is problematic. There is a single NA in `transitivity` in the test dataset.
 
 ## Classification tree
 
 The aim is to train a classification tree to profile urban and suburban walksheds based on the attributes of the network. We need to drop 1 observation that has an NA in `transitivity`:
 
 ```{r}
-d <- walksheds_da_net_vars |>
+d <- walksheds_train_net_vars |>
+  select(-girth) |>
+  drop_na() |>
+  mutate(normalized_motifs_3 = motifs_3/n_edges,
+         normalized_motifs_4 = motifs_4/n_edges)
+
+d_test <- walksheds_test_net_vars |>
   select(-girth) |>
   drop_na() |>
   mutate(normalized_motifs_3 = motifs_3/n_edges,
          normalized_motifs_4 = motifs_4/n_edges)
 ```
 
-We use a technique with evolutionary trees - an alternative to classification trees that is less affected by the greediness of the algorithm. Since evolutionary trees have some randomness (for the initial values), we can try several to find whether there are patterns. In this case we try four different random seed.
+We use a technique with evolutionary trees - an alternative to classification trees that is less affected by the greediness of the algorithm. Since evolutionary trees have some randomness (for the initial values), we can try several to find whether there are patterns. 
 
-Tree 1 with seed 1 (912571):
-
+Bunch of trees with random seeds. First, make sure that the seeds are reproducible:
 ```{r}
-seed1 <- sample.int(1000000, 1)
-#seed1 <- 908544
-set.seed(908544)
-tree1 <- evtree(Type ~ ., 
-                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
-plot(tree1)
+n_trees <- 30 # select number of trees
+set.seed(98732475)
+seeds <- sample.int(1000000, n_trees)
 ```
 
-Tree 2 with seed 2 (94766):
-
+Traaaain!
 ```{r}
-seed2 <- sample.int(1000000, 1)
-#seed2 <- 669402
-seed2
-set.seed(seed2)
-tree2 <- evtree(Type ~ ., 
-                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
-plot(tree2)
+counter <- 0 
+trees <- list()
+for(i in seeds){
+  counter <- counter + 1
+  #set.seed(seeds[counter])
+  #tree_name <- glue::glue("tree{counter}")
+  trees[[counter]] <- evtree(Type ~ ., 
+                             data = d |> 
+                               select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes, origin_type)),
+                             control = evtree.control(seed = seeds[counter]))
+}
 ```
 
-Tree 3 with seed 3 (46125):
-
+Name the trees in the list above:
 ```{r}
-seed3 <- sample.int(1000000, 1)
-#seed3 <- 853251
-seed3
-set.seed(seed3)
-tree3 <- evtree(Type ~ ., 
-                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
-plot(tree3)
+named_trees <- data.frame(t = "evtree ", count = c(1:n_trees)) |>
+  mutate(t = glue::glue("{t}{count}"))
+
+names(trees) <- named_trees$t
 ```
 
-Tree 4 with seed 4 (556090)
-
+Check the attributes of the trees:
 ```{r}
-seed4 <- sample.int(1000000, 1)
-#seed4 <- 707633
-seed4
-set.seed(seed4)
-tree4 <- evtree(Type ~ ., 
-                data = d |> select(-c(GeoUID, motifs_3, motifs_4, n_edges, n_nodes)))
-plot(tree4)
+trees
 ```
 
-Create a function to estimate the missclassification rate and the evaluation function:
+The frequency of variables in this set of tree is as follows:
 
+Variable            | Number of trees where it appears
+--------------------| --------------------------------
+edge_density        | IIIII IIIII IIIII IIIII IIIII IIIII 
+normalized_motifs_3 | IIIII IIIII IIIII IIIII IIIII IIIII 
+diameter            | IIIII II
+transitivity        | II
+mean_distance       | II
+normalized_motifs_4 | I
+
+IIIII IIIII IIIII IIIII IIIII IIIII
+
+The pattern is dominated by edge_density and normalized_motifs_3, and this has been the case after repeating this procedure several times. By now I must have trained over 150 trees.
+
+There is something about reproducing the trained trees; after restarting the computer, using the same seed does not replicate the trees; after doing this process several times, the results are very similar, but to avoid problems with slightly different trees being produced every time, save the results of this run):
+```{r eval=FALSE}
+# WARNING: Run only if you wish to replace the file with the results used in the report
+# Save to `data` folder
+save(trees,
+     file = glue::glue(here::here(), "/data/trees.rda"),
+     compress = "xz")
+```
+
+Examine missclassification in training dataset. The missclassification is the proportion of times that the predicted class is different from the observed class. The evaluation function uses the missclassification rate but penalizes by complexity (number of nodes in the tree):
 ```{r}
 mc <- function(obj) 1 - mean(predict(obj) == d$Type)
 
@@ -115,562 +189,313 @@ mc <- function(obj) 1 - mean(predict(obj) == d$Type)
 evalfun <- function(obj) 2 * nrow(d) * mc(obj) + width(obj) * log(nrow(d))
 
 #trees <- list("evtree" = tree1, "rpart" = rp, "ctree" = ct, "rpart2" = rp2, "ctree2" = ct2)
-trees <- list("evtree 1" = tree1, "evtree 2" = tree2, "evtree 3" = tree3, "evtree 4" = tree4)
+#trees <- list("evtree 1" = tree1, "evtree 2" = tree2, "evtree 3" = tree3, "evtree 4" = tree4)
 
-round(sapply(trees, function(obj) c("misclassification" = mc(obj), "evaluation function" = evalfun(obj))), digits = 7)
-
+mc_train <- round(sapply(trees, function(obj) c("misclassification" = mc(obj), "evaluation function" = evalfun(obj))), digits = 7)
+mc_train
 ```
 
-All trees have similar fit.
+Examine missclassificationon the test data:
+```{r}
+mc <- function(obj) 1 - mean(predict(obj, newdata = d_test) == d_test$Type)
 
-Plot the trees:
+
+evalfun <- function(obj) 2 * nrow(d_test) * mc(obj) + width(obj) * log(nrow(d_test))
+
+#trees <- list("evtree" = tree1, "rpart" = rp, "ctree" = ct, "rpart2" = rp2, "ctree2" = ct2)
+#trees <- list("evtree 1" = tree1, "evtree 2" = tree2, "evtree 3" = tree3, "evtree 4" = tree4)
+
+mc_test <- round(sapply(trees, function(obj) c("misclassification" = mc(obj), "evaluation function" = evalfun(obj))), digits = 7)
+mc_test
+```
+
+The tree that best balances the evaluation function in the train and test datasets is `tree26`:
+```{r}
+(mc_train[2,] + mc_test[2,])/2
+```
+
+There are several ties, but are actually variations of the same model. Choose Tree 4:
+```{r}
+best_evtree <- trees[[4]]
+```
+
+Plot the tree:
+```{r}
+# Round the labels of the edges. The relevant information is in a dataframe produced by ggparty()
+ggparty_plot <- best_evtree |>
+  ggparty()
+
+# Round the number of digits and keep the inequality signs
+ggparty_data <- ggparty_plot$data |>
+  mutate(breaks_label = paste0(substr(breaks_label, 4, 5), 
+                               substr(breaks_label,10, 15)),
+         splitvar = case_when(splitvar == "edge_density" ~ "Edge Density",
+                              splitvar == "transitivity" ~ "Transitivity",
+                              splitvar == "normalized_motifs_3" ~ "Normalized Motifs (3)",
+                              is.na(splitvar) ~ NA))
+
+# Replace the dataframe in the ggplot object
+ggparty_plot$data <- ggparty_data 
+
+ggparty_plot +
+  geom_edge() +
+  geom_node_splitvar(id = "inner", size = 3) +
+  # parse should be set to FALSE so the labels do not try to parse the inequality signs
+  geom_edge_label(mapping = aes(label = breaks_label),
+                  parse = FALSE,
+                  size = 2.5) +
+  # # pass list to gglist containing all ggplot components we want to plot for each
+  # # (default: terminal) node
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = Type),
+                                        position = position_fill()),
+                               xlab(""),
+                               ylab(""),
+                               scale_fill_manual(name = "Urban fabric type",
+                                                 values = c("#FDAE61", "#1A9850")),
+                               theme(axis.text.y = element_blank(),
+                                     panel.background = element_rect(fill = NA),
+                                     axis.ticks = element_blank()))) +
+  geom_node_label(line_list = list(aes(label = paste0("Leaf ", ifelse(id >= 6, id - 3, id - 2)))),
+                  line_gpar = list(list(size = 7, parse = F)),
+                  ids = "terminal",
+                  nudge_x = 0.02,
+                  nudge_y = -0.4)
+```
+
+The leaves are as follows:
+
+Leaf        | Character
+------------|----------
+Leaf 1      | Suburban
+Leaf 2      | Urban
+Leaf 3      | Suburban
+Leaf 4      | Urban
+
+Check the break labels of `tree4` to round:
 
 ```{r}
-tree1_plot <- ggparty(tree1) +
-  geom_edge() +
-  geom_edge_label(aes(label = breaks_label)) +
-  geom_node_label(aes(label = splitvar), ids = "inner") +
-  # identical to  geom_node_splitvar() +
-  geom_node_label(aes(label = info), ids = "terminal")
-
-tree2_plot <- ggparty(tree2) +
-  geom_edge() +
-  geom_edge_label(aes(label = breaks_label)) +
-  geom_node_label(aes(label = splitvar), ids = "inner") +
-  # identical to  geom_node_splitvar() +
-  geom_node_label(aes(label = info), ids = "terminal")
-
-tree3_plot <- ggparty(tree3) +
-  geom_edge() +
-  geom_edge_label(aes(label = breaks_label)) +
-  geom_node_label(aes(label = splitvar), ids = "inner") +
-  # identical to  geom_node_splitvar() +
-  geom_node_label(aes(label = info), ids = "terminal")
-
-tree4_plot <- ggparty(tree4) +
-  geom_edge() +
-  geom_edge_label(aes(label = breaks_label)) +
-  geom_node_label(aes(label = splitvar), ids = "inner") +
-  # identical to  geom_node_splitvar() +
-  geom_node_label(aes(label = info), ids = "terminal")
-
-(tree1_plot + tree2_plot) / (tree3_plot + tree4_plot)
+ggparty(best_evtree)$data$breaks_label
 ```
 
-Notice that edge_density and normalized_motifs_3 are the dominant attributes in the classification trees. Trees 1, 3, and 4 have the same general structure, and in fact trees 3 and 4 are identical. Based on this we choose to use `tree3`.
-
-Check the break labels of `tree3` to round:
-
-```{r}
-ggparty(tree3)$data$breaks_label
-```
-
-```{r add-classification-to-data}
-#| include: false
+Use the classification tree to add classes to train data:
+```{r add-classification-to-train-data}
 
 d <- d |>
-  mutate(leaf = case_when(edge_density < 0.00591859212548868 & normalized_motifs_3 < 0.86734693877551 ~ "Leaf 1",
-                          edge_density < 0.00591859212548868 & normalized_motifs_3 >= 0.86734693877551 ~ "Leaf 2",
-                          edge_density >= 0.00591859212548868 & normalized_motifs_3 < 0.967741935483871 ~ "Leaf 3",
-                          edge_density >= 0.00591859212548868 & normalized_motifs_3 >= 0.967741935483871 ~ "Leaf 4"),
+  mutate(leaf = case_when(edge_density < 0.00590599876314162 & normalized_motifs_3 < 0.865853658536585  ~ "Leaf 1",
+                          edge_density < 0.00590599876314162 & normalized_motifs_3 >= 0.865853658536585 ~ "Leaf 2",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 < 0.967078189300412 ~ "Leaf 3",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 >= 0.967078189300412 ~ "Leaf 4") ,
          leaf = factor(leaf))
 ```
 
-```{r join-area-of-ped-sheds}
-#| include: false
-
-d <- d |>
-  left_join(walksheds_da |>
-              mutate(area = st_area(geometry),
-                     area = units::set_units(area, km^2) |> 
-                       drop_units()) |>
-              st_drop_geometry(),
-            by = c("GeoUID", "Type")) 
+Use the classification tree to add classes to test data:
+```{r add-classification-to-test-data}
+d_test <- d_test |>
+  mutate(leaf = case_when(edge_density < 0.00590599876314162 & normalized_motifs_3 < 0.865853658536585  ~ "Leaf 1",
+                          edge_density < 0.00590599876314162 & normalized_motifs_3 >= 0.865853658536585 ~ "Leaf 2",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 < 0.967078189300412 ~ "Leaf 3",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 >= 0.967078189300412 ~ "Leaf 4") ,
+         leaf = factor(leaf))
 ```
 
-```{r area-of-ped-sheds-by-classification}
-#| echo: false
-
-d |>
-  select(area, leaf) |>
-  group_by(leaf) |>
-  skim() |>
-  mutate(across(numeric.mean:numeric.p100, 
-                      ~round(.x, 2)),
-         Type = c("Typically suburban", "Typically urban", "Typically suburban", "Typically urban")) |>
-  select(leaf, Type, starts_with("numeric")) |>
-  rename_with(~ str_replace(.x, "numeric.", ""), starts_with("numeric")) |>
-  gt() |>
-  cols_width(everything() ~ px(100)) |>
-  tab_options(table.font.size = 30)
+Join the classes to walksheds:
+```{r}
+walksheds_train <- walksheds_train |> 
+  left_join(d |>
+              st_drop_geometry() |>
+              select(GeoUID,
+                     Type,
+                     leaf),
+            by = c("GeoUID", 
+                   "Type"))
 ```
 
-Typically suburban networks contain many unique patterns (few motifs).
+Examples of networks and walksheds by leaf.
 
-0.00591859212548868 & normalized_motifs_3 \< 0.86734693877551 \~ "Leaf 1", edge_density \< 0.00591859212548868 & normalized_motifs_3 \>= 0.86734693877551 \~ "Leaf 2", edge_density \>= 0.00591859212548868 & normalized_motifs_3 \< 0.967741935483871 \~ "Leaf 3",
-
+Leaf 1 (Urban):
 ```{r plot-leaf-1}
 set.seed(29919)
 
-leaf_1_plot <- st_intersection(hamilton_net$edges,
-             walksheds_da |> 
-  filter(GeoUID == (walksheds_da_net_vars |> 
-                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
-                      filter(edge_density < 0.00591859212548868,
-                             normalized_motifs_3 < 0.86734693877551, 
-                             Type == "Suburban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID))))
+walkshed_leaf_1 <- walksheds_train |> 
+  ungroup () |>
+  filter(leaf == "Leaf 1") |>
+  slice_sample(n = 1)
 
 leaf_1_plot <- hamilton_net$edges |>
-  filter(edge_index %in% leaf_1_plot$edge_index)
+  st_intersection(walkshed_leaf_1)
 
-#leaf_1_plot <- 
-  leaf_1_plot |>
-  ggplot() +
-  geom_sf() +
-  ggtitle("edge density < 0.006, motifs < 0.867") +
+leaf_1_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_1_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_1 <- walkshed_leaf_1 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_1 <- st_bbox(leaf_1_plot)[3] - st_bbox(leaf_1_plot)[1]
+max_y_1 <- st_bbox(leaf_1_plot)[4] - st_bbox(leaf_1_plot)[2]
+center_1 <- c(max_x_1/2 + st_bbox(leaf_1_plot)[1], max_y_1/2 + st_bbox(leaf_1_plot)[2])
+
+ggplot() +
+  geom_sf(data = walkshed_leaf_1,
+          color = "#FDAE61",
+          fill = "#FDAE61") +
+  geom_sf(data = leaf_1_plot) +
+  ggtitle("Walkshed in Leaf 1 (Suburban)") +
   theme_void()
 ```
 
+Leaf 2 (Urban):
 ```{r plot-leaf-2}
-set.seed(84451)
+set.seed(29919)
 
-leaf_2_plot <- st_intersection(hamilton_net$edges,
-             walksheds_da |> 
-  filter(GeoUID == (walksheds_da_net_vars |> 
-                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
-                      filter(edge_density >= 0.00591859212548868,
-                             normalized_motifs_3 < 0.967741935483871, 
-                             Type == "Suburban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID))))
+walkshed_leaf_2 <- walksheds_train |> 
+  ungroup () |>
+  filter(leaf == "Leaf 2") |>
+  slice_sample(n = 1)
 
 leaf_2_plot <- hamilton_net$edges |>
-  filter(edge_index %in% leaf_2_plot$edge_index)
+  st_intersection(walkshed_leaf_2)
 
-leaf_2_plot |>
-  ggplot() +
-  geom_sf() +
-  ggtitle("edge density < 0.006, motifs >= 0.968") +
+leaf_2_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_2_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_2 <- walkshed_leaf_2 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_2 <- st_bbox(leaf_2_plot)[3] - st_bbox(leaf_2_plot)[1]
+max_y_2 <- st_bbox(leaf_2_plot)[4] - st_bbox(leaf_2_plot)[2]
+center_2 <- c(max_x_2/2 + st_bbox(leaf_2_plot)[1], max_y_2/2 + st_bbox(leaf_2_plot)[2])
+
+ggplot() +
+  geom_sf(data = walkshed_leaf_2,
+          color = "#1A9850",
+          fill = "#1A9850") +
+  geom_sf(data = leaf_2_plot) +
+  ggtitle("Walkshed in Leaf 2 (Urban)") +
   theme_void()
 ```
 
-```{r display-suburban-networks}
-#| echo: false
-
-leaf_1_plot + plot_spacer() + leaf_3_plot
-```
-
-Typically urban networks contain isomorphic patterns that repeat (large number of motifs).
-
+Leaf 3 (Urban):
 ```{r plot-leaf-3}
-set.seed(92348)
+set.seed(29922)
 
-leaf_1_plot <- st_intersection(hamilton_net$edges,
-             walksheds_da |> 
-  filter(GeoUID == (walksheds_da_net_vars |> 
-                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
-                      filter(edge_density < 0.00591859212548868,
-                             normalized_motifs_3 >= 0.86734693877551, 
-                             Type == "Urban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID))))
+walkshed_leaf_3 <- walksheds_train |> 
+  ungroup () |>
+  filter(leaf == "Leaf 3") |>
+  slice_sample(n = 1)
 
-leaf_1_plot <- hamilton_net$edges |>
-  filter(edge_index %in% leaf_1_plot$edge_index)
+leaf_3_plot <- hamilton_net$edges |>
+  st_intersection(walkshed_leaf_3)
 
-#leaf_1_plot <- 
-  leaf_1_plot |>
-  ggplot() +
-  geom_sf() +
-  ggtitle("edge density < 0.006, motifs >= 0.867") +
+leaf_3_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_3_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_3 <- walkshed_leaf_3 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_3 <- st_bbox(leaf_3_plot)[3] - st_bbox(leaf_3_plot)[1]
+max_y_3 <- st_bbox(leaf_3_plot)[4] - st_bbox(leaf_3_plot)[2]
+center_3 <- c(max_x_3/2 + st_bbox(leaf_3_plot)[1], max_y_3/2 + st_bbox(leaf_3_plot)[2])
+
+ggplot() +
+  geom_sf(data = walkshed_leaf_3,
+          color = "#FDAE61",
+          fill = "#FDAE61") +
+  geom_sf(data = leaf_3_plot) +
+  ggtitle("Walkshed in Leaf 3 (Suburban)") +
   theme_void()
 ```
 
+Leaf 4 (Urban):
 ```{r plot-leaf-4}
-set.seed(392847)
+set.seed(29946765)
 
-leaf_4_plot <- st_intersection(hamilton_net$edges,
-             walksheds_da |> 
-  filter(GeoUID == (walksheds_da_net_vars |> 
-                      mutate(normalized_motifs_3 = motifs_3/n_edges) |>
-                      filter(edge_density >= 0.00591859212548868,
-                             normalized_motifs_3 >= 0.967741935483871, 
-                             Type == "Urban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID))))
+walkshed_leaf_4 <- walksheds_train |> 
+  ungroup () |>
+  filter(leaf == "Leaf 4") |>
+  slice_sample(n = 1)
 
 leaf_4_plot <- hamilton_net$edges |>
-  filter(edge_index %in% leaf_4_plot$edge_index)
+  st_intersection(walkshed_leaf_4)
 
-leaf_4_plot |>
-  ggplot() +
-  geom_sf() +
-  ggtitle("edge density < 0.006, motifs >= 0.968") +
+leaf_4_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_4_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_4 <- walkshed_leaf_4 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_4 <- st_bbox(leaf_4_plot)[3] - st_bbox(leaf_4_plot)[1]
+max_y_4 <- st_bbox(leaf_4_plot)[4] - st_bbox(leaf_4_plot)[2]
+center_4 <- c(max_x_4/2 + st_bbox(leaf_4_plot)[1], max_y_4/2 + st_bbox(leaf_4_plot)[2])
+
+ggplot() +
+  geom_sf(data = walkshed_leaf_4,
+          color = "#1A9850",
+          fill = "#1A9850") +
+  geom_sf(data =leaf_4_plot) +
+  ggtitle("Walkshed in Leaf 4 (Typically urban)") +
   theme_void()
 ```
 
-```{r display-urban-networks}
-#| echo: false
-
-leaf_2_plot + plot_spacer() + leaf_4_plot
-```
-
-## Analysis of pedshed areas as a function of network attributes
-
-```{r estimate-model-area}
-#| include: false
-mdl <- d |>
-  mutate(area = log(area),
-         edge_density_2 = edge_density^2,
-         normalized_motifs_3_2 = normalized_motifs_3^2) |>
-  lm(area ~ edge_density + edge_density_2 + normalized_motifs_3, data = _)
-```
-
-```{r tidy-results-of-model-area}
-#| include: false
-
-mdl_tidy <- mdl |>
-  tidy() |>
-  mutate(term = c("intercept", "edge_density", "edge_density^2", "normalized_motifs_3"))
-```
-
-```{r plot-effects-transitivity}
-#| include: false
-
-b1 <- mdl_tidy |> filter(term == "intercept") |> pull(estimate)
-b2 <- mdl_tidy |> filter(term == "edge_density") |> pull(estimate)
-b3 <- mdl_tidy |> filter(term == "edge_density^2") |> pull(estimate)
-f_transitivity <- function(x) exp(b1 + b2 * x +  b3 * x^2)
-
-effect_transitivity <- ggplot() +
-  geom_function(fun = f_transitivity,
-                xlim = c(0, 0.4)) +
-    ylim(c(0.05, 1.9)) +
-  ggtitle("Expected area as a function of transitivity") + 
-  ylab("area (sq.km)") +
-  xlab("transitivity") +
-  theme_minimal()
-```
-
-```{r plot-effect-motifs}
-#| include: false
-
-b1 <- mdl_tidy |> filter(term == "intercept") |> pull(estimate)
-b4 <- mdl_tidy |> filter(term == "normalized_motifs_3") |> pull(estimate)
-f_motifs <- function(x) exp(b1 + b4 * x)
-
-effect_motifs <- ggplot() +
-  geom_function(fun = f_motifs,
-                xlim = c(0.45, 1.1)) +
-  ylim(c(0.05, 1.9)) +
-  ggtitle("Expected area as a function of normalized motifs (size = 3)") + 
-  ylab("area (sq.km)") +
-  xlab("normalized motifs (size = 3)") +
-  theme_minimal()
-```
-
-```{r display-model-effects}
-#| echo: false
-
-effect_transitivity + effect_motifs
-```
-
-\<!-- Check the break labels of `tree3` to round:
-
+Find the max extent in x and y:
 ```{r}
-ggparty(tree3)$data$breaks_label
+max_x <- max(c(max_x_1, max_x_2, max_x_3, max_x_4))
+max_y <- max(c(max_y_1, max_y_2, max_y_3, max_y_4))
 ```
 
-Plot the tree with the rounded break labels:
-
-```{r}
-ggparty(tree3) +
-  geom_edge() +
-  geom_edge_label(aes(label = str_replace(breaks_label, 
-                                          "0.0207311636201516", 
-                                          "0.021"))) +
-  geom_node_splitvar(aes(label = ifelse(kids == 0,
-                                        glue(" n = {nodesize}"), 
-                                        splitvar)),
-                     nudge_x = 0.0,
-                     ids = c(1, 2, 5)) +
-  geom_node_splitvar(aes(label = ifelse(kids == 0,
-                                        glue(" n = {nodesize}"), 
-                                        splitvar)),
-                     nudge_x = 0.02,
-                     ids = c(3, 4, 6, 7)) +
-  geom_node_plot(gglist = list(geom_bar(aes(x = "", 
-                                            fill = Type),
-                                        position = position_fill()),
-                               xlab("Type"),
-                               theme_minimal()),
-                 # draw only one label for each axis
-                 shared_axis_labels = TRUE,
-                 # draw line between tree and legend
-                 legend_separator = FALSE
-                 )
-```
-
-Find examples of ped sheds in each of the leafs and plot the network for illustration.
-
-Leaf 1:
-
+Function to translate the objects to center them at a false origin of zero:
 ```{r}
 
-seed <- sample.int(100000, 1)
-set.seed(seed)
-seed
-#69717
-
-st_intersection(hamilton_net$edges,
-             walksheds |> 
-  filter(GeoUID == (walksheds_net_attributes |> 
-                      filter(transitivity < 0.0207311636201516,
-                             motifs < 378, 
-                             Type == "Suburban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID)))) |>
-  ggplot() +
-  geom_sf()
-```
-
-Leaf 2 (urban):
-
-```{r}
-seed <- sample.int(100000, 1)
-set.seed(seed)
-seed
-#84451, 44785
-
-st_intersection(hamilton_net$edges,
-             walksheds |> 
-  filter(GeoUID == (walksheds_net_attributes |> 
-                      filter(motifs >= 378, 
-                             transitivity < 0.0207311636201516,
-                             Type == "Urban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID)))) |>
-  ggplot() +
-  geom_sf()
-```
-
-Leaf 3 (suburban):
-
-```{r}
-seed <- sample.int(100000, 1)
-set.seed(seed)
-seed
-#81461, 84451
-
-st_intersection(hamilton_net$edges,
-             walksheds |> 
-  filter(GeoUID == (walksheds_net_attributes |> 
-                      filter(motifs < 1024, 
-                             transitivity >= 0.0207311636201516,
-                             Type == "Suburban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID)))) |>
-  ggplot() +
-  geom_sf()
-```
-
-Leaf 4 (urban):
-
-```{r}
-seed <- sample.int(100000, 1)
-set.seed(seed)
-seed
-#52534
-
-st_intersection(hamilton_net$edges,
-             walksheds |> 
-  filter(GeoUID == (walksheds_net_attributes |> 
-                      filter(motifs >= 1024, 
-                             transitivity >= 0.0207311636201516,
-                             Type == "Urban") |> 
-                      slice_sample(n=1) |> 
-                      pull(GeoUID)))) |>
-  ggplot() +
-  geom_sf()
-```
-
-Add leaf labels to data:
-
-```{r}
-d <- d |>
-  mutate(leaf = case_when(transitivity < 0.0207311636201516 & motifs < 378 ~ "Leaf 1",
-                          transitivity < 0.0207311636201516 & motifs >= 378 ~ "Leaf 2",
-                          transitivity >= 0.0207311636201516 & motifs < 1024 ~ "Leaf 3",
-                          transitivity >= 0.0207311636201516 & motifs >= 1024 ~ "Leaf 4"),
-         leaf = factor(leaf))
-```
-
-```{r}
-skim(d)
-```
-
-```{r}
-d |>
-  left_join(walksheds |>
-              select(-Type) |>
-              mutate(area = st_area(geometry),
-                     area = units::set_units(area, km^2) |> 
-                       drop_units(),
-                     area = log(area)) |>
-              st_drop_geometry(),
-            by = "GeoUID") |>
-  lm(area ~ leaf, data = _) |>
-  summary()
-```
-
-But what about accessibility??
-
-Summary of amenity categories by DA and Type:
-
-```{r}
-amenities_walksheds_summary <- amenities_walksheds |>
-  drop_na() |>
-  st_drop_geometry() |>
-  group_by(GeoUID,
-           Type,
-           Category) |>
-  summarize(n = n(),
-            .groups = "drop") |>
-  pivot_wider(id_cols = c(GeoUID, Type),
-              names_from = Category,
-              values_from = n,
-              values_fill = 0)
-```
-
-To map accessibility by category of amenity we first categorize the number of amenities:
-
-```{r}
-amentities_da <-  urban_hammer_da |>
-  select(GeoUID, Type.1) |>
-  rename(Type = Type.1) |>
-  left_join(amenities_walksheds_summary,
-            by = c("GeoUID", "Type")) |>
-  mutate(across(Sustenance:Library, ~ replace_na(.x, 0))) |>
-  pivot_longer(cols = -c(GeoUID, Type, geometry),
-               names_to = "Amenity_Category",
-               values_to = "Number_of_Amenities") |>
-  #mutate(Number_of_Amenities = ifelse(Number_of_Amenities == 0, NA, Number_of_Amenities)) |>
-  mutate(Number_of_Amenities = case_when(Number_of_Amenities == 0 ~ "0",
-                                         Number_of_Amenities > 0 & Number_of_Amenities <= 3 ~ "1-3",
-                                         Number_of_Amenities > 3 & Number_of_Amenities <= 6 ~ "4-6",
-                                         Number_of_Amenities > 6 & Number_of_Amenities <= 9 ~ "7-9",
-                                         Number_of_Amenities > 9 ~ "10 or more"),
-         Number_of_Amenities = factor(Number_of_Amenities,
-                                      levels = c("0", "1-3", "4-6", "7-9", "10 or more"),
-                                      ordered = TRUE))
-```
-
-Plot:
-
-```{r}
-amentities_da |>
-  ggplot() +
-  geom_sf(aes(fill = Number_of_Amenities)) +
-  geom_sf(data = urban_types |>
-            filter(Type != "Rural"),
-          aes(color = Type),
-          fill = NA) +
-  #scale_fill_fermenter(direction = 1, palette = "Greens") +
-  facet_wrap(~ Amenity_Category) + 
+leaf_1_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_1,
+          color = "#FDAE61",
+          fill = "#FDAE61") +
+  geom_sf(data = leaf_1_plot) +
   theme_void()
+
+leaf_2_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_2,
+          color = "#1A9850",
+          fill = "#1A9850") +
+  geom_sf(data = leaf_2_plot) +
+  theme_void()
+
+leaf_3_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_3,
+          color = "#FDAE61",
+          fill = "#FDAE61") +
+  geom_sf(data = leaf_3_plot) +
+  theme_void()
+
+leaf_4_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_4,
+          color = "#1A9850",
+          fill = "#1A9850") +
+  geom_sf(data =leaf_4_plot) +
+  theme_void()
+
 ```
 
-Pivot wider:
 
 ```{r}
-junk <- amentities_da |>
-  pivot_wider(names_from = "Amenity_Category",
-              values_from = "Number_of_Amenities")
+sample_sheds_by_urban_type <- cowplot::plot_grid(leaf_1_gg, leaf_2_gg, leaf_3_gg, leaf_4_gg,
+                   nrow = 2, 
+                   ncol = 2,
+                   labels = c("Leaf 1 (Subrban)", "Leaf 2 (Urban)", "Leaf 3 (Suburban)", "Leaf 4 (Urban)"))
+
+cowplot::save_plot(sample_sheds_by_urban_type,
+                   filename = glue::glue(here::here(),"/plots/sample_sheds_by_urban_type.png"),
+                   nrow = 2,
+                   ncol = 3,
+                   base_width = 3.5)
+
+sample_sheds_by_urban_type
 ```
 
-```{r}
-junk2 <- d |>
-  left_join(junk |>
-              #select(-Type) |>
-              st_drop_geometry(),
-            by = c("GeoUID", "Type")) |>
-  mutate(across(Sustenance:Library, ~forcats::fct_drop(.x)))
-```
-
-```{r}
-summary(junk2 |> select(Sustenance:Library))
-```
-
-## Clusters: try self-organizing maps (SOM)
-
-```{r}
-wsn.som <- trainSOM(x.data = walksheds_net_attributes |>
-                       select(-c(GeoUID, Type)),
-                     dimension = c(5,5), 
-                     verbose = TRUE, 
-                     nb.save = 5, 
-                     topo = "hexagonal")
-```
-
-```{r}
-wsn.som
-```
-
-```{r}
-plot(wsn.som, what="energy")
-```
-
-```{r}
-wsn.som$clustering
-```
-
-```{r}
-wsn.som$clustering |> table()
-```
-
-```{r}
-plot(wsn.som, what="obs", type="hitmap")
-```
-
-```{r}
-summary(wsn.som)
-```
-
-```{r}
-par(mfrow = c(2,2))
-plot(wsn.som, what = "obs", type = "color", variable = 1)
-plot(wsn.som, what = "obs", type = "color", variable = 2)
-```
-
-```{r}
-plot(wsn.som, what = "add", type = "pie", variable = walksheds_net_attributes$Type) +
-  scale_fill_brewer(type = "qual") + 
-  guides(fill = guide_legend(title = "Type"))
-```
-
-```{r}
-quality(wsn.som)
-```
-
-```{r}
-plot(superClass(wsn.som))
-```
-
-```{r}
-wsn.som <- trainSOM(x.data = walksheds_net_attributes |>
-                       select(-c(GeoUID, Type)),
-                     dimension = c(4, 4), #2,3
-                     verbose = TRUE, 
-                     nb.save = 5,
-                     topo = "square")
-```
-
-```{r}
-plot(wsn.som, what="energy")
-```
-
-```{r}
-quality(wsn.som)
-```
