@@ -289,7 +289,7 @@ The indicator we use assesses levels of accessibility from a normative perspecti
 
 In this study, we calculate cumulative accessibility scores by summing the number of amenities within urban and suburban walksheds, categorized into the four types provided by the data source: financial, sustenance, healthcare, and library. Additionally, we extract population data of each walkshed. Summary statistics of population are also included in the analysis.
 
-Additionally, the accessibility assessment of is completed by obtaining summary statistics of travel times in urban and suburban walksheds. To study the impact of urban and suburban walksheds on walking decisions, minimum and mean travel times to destinations are introduced into time-decay functions for walking decisions, as developed by Milward (2013). These are active travel impedance functions based on data from Canada.
+Additionally, the accessibility assessment is completed by obtaining summary statistics of travel times in urban and suburban walksheds. To study the impact of urban and suburban walksheds on walking decisions, minimum and mean travel times to destinations are introduced into time-decay functions for walking decisions, as developed by Milward (2013). These are active travel impedance functions based on data from Canada.
 
 
 <!--- 
