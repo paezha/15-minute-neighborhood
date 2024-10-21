@@ -68,22 +68,22 @@ knitr::opts_chunk$set(echo = FALSE,
 
 ```{r load-packages}
 library(broom) # Convert Statistical Objects into Tidy Tibbles
-library(cowplot)
+library(cowplot) # Streamlined Plot Theme and Plot Annotations for 'ggplot2'
 library(dplyr) # A Grammar of Data Manipulation
 library(evtree) # Evolutionary Learning of Globally Optimal Trees
 library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
 library(glue) # Interpreted String Literals
 library(gt) # Easily Create Presentation-Ready Display Tables
-library(rpart) # Recursive Partitioning and Regression Trees
-library(rpart.plot) # Plot 'rpart' Models: An Enhanced Version of 'plot.rpart'
-library(patchwork) # The Composer of Plots
-library(partykit)
+#library(rpart) # Recursive Partitioning and Regression Trees
+#library(rpart.plot) # Plot 'rpart' Models: An Enhanced Version of 'plot.rpart'
+#library(patchwork) # The Composer of Plots
+#library(partykit) # A Toolkit for Recursive Partytioning
 library(tidyr) # Tidy Messy Data
-library(tree) # Classification and Regression Trees
+#library(tree) # Classification and Regression Trees
 library(sf) # Simple Features for R
 library(skimr) # Compact and Flexible Summaries of Data
-library(SOMbrero) # SOM Bound to Realize Euclidean and Relational Outputs
+#library(SOMbrero) # SOM Bound to Realize Euclidean and Relational Outputs
 library(stringr) # Simple, Consistent Wrappers for Common String Operations
 library(units) # Measurement Units for R Vectors
 library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination Sites in Hamilton, ON
@@ -92,6 +92,10 @@ library(vaccHamilton) # A Data Package to Estimate Accessibility of Vaccination 
 ```{r load-data}
  # From package vaccHamilton
 data("urban_types")
+
+# Load trained evolutionary trees
+load(file = glue::glue(here::here(),
+                       "/data/trees.rda"))
 
 # Analysis-ready data. See notebooks in folder data-raw for details
 load(file = glue::glue(here::here(),
@@ -104,74 +108,133 @@ load(file = glue::glue(here::here(),
                        "/data/walksheds_da.rda"))
 load(file = glue::glue(here::here(),
                        "/data/walksheds_da_net_vars.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_validation.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_validation_net_vars.rda"))
 ```
 
+```{r}
+# Bind the centroid and non-centroid walksheds:
+walksheds <- bind_rows(walksheds_da,
+                       walksheds_validation) |>
+  mutate(origin_type = rep(c("centroid", "non-centroid"), each = nrow(walksheds_da)))
+```
 
+```{r }
+# Obtain training and validation datasets by sampling from centroid and non-centroid walksheds:
 
-The aim is to train a classification tree to profile urban and suburban walksheds based on the attributes of the network. We need to drop 1 observation that has an NA in `transitivity`:
+# Set seed for replicability
+seed <- 3626425
+set.seed(seed)
 
-```{r prepare-data-frame-for-analysis}
-# Use normalized motifs because the number of motifs will depend on the number of edges. Divide by edges to obtain a comparable number
-# Remove girth which is problematic for modeling
-d <- walksheds_da_net_vars |>
+# slice_sample() will select one of two rows for each DA at random
+walksheds_train <- walksheds |>
+  group_by(GeoUID) |>
+  slice_sample(prop = 0.5)
+
+# The antijoin will keep the rows in walksheds that do not appear in walksheds_train
+walksheds_test <- walksheds |>
+  anti_join(walksheds_train |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+```
+
+```{r bind-centroid-non-centroid-network-variables}
+# Bind the centroid and non-centroid dataframes with walkshed network variables:
+walksheds_net_vars <- bind_rows(walksheds_da_net_vars,
+                                walksheds_validation_net_vars) |>
+  mutate(origin_type = rep(c("centroid",
+                             "non-centroid"), 
+                           each = nrow(walksheds_da)))
+```
+
+```{r obtain-training-testing-network-variables}
+# Now filter from the network variables to obtain training and test datasets:
+walksheds_train_net_vars <- walksheds_net_vars |>
+  semi_join(walksheds_train |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+
+walksheds_test_net_vars <- walksheds_net_vars |>
+  semi_join(walksheds_test |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+```
+
+```{r training-and-testing-dataframes-for-evolutionary-tree}
+d <- walksheds_train_net_vars |>
   select(-girth) |>
   drop_na() |>
-  mutate(`Normalized Motifs (3)` = motifs_3/n_edges,
-         `Normalized Motifs (4)` = motifs_4/n_edges) |>
-  rename(`Edge Density` = edge_density)
+  mutate(normalized_motifs_3 = motifs_3/n_edges,
+         normalized_motifs_4 = motifs_4/n_edges)
+
+d_test <- walksheds_test_net_vars |>
+  select(-girth) |>
+  drop_na() |>
+  mutate(normalized_motifs_3 = motifs_3/n_edges,
+         normalized_motifs_4 = motifs_4/n_edges)
 ```
 
-```{r train-evolutionary-tree}
-#seed1 <- 908544
-set.seed(908544)
-ev.tree <- evtree::evtree(Type ~ ., 
-                data = d |> select(-c(GeoUID, 
-                                      motifs_3, 
-                                      motifs_4, 
-                                      n_edges, 
-                                      n_nodes)))
+```{r best-tree}
+# Retrieve the best evolutionary tree. The algorithm of evolutionary trees has some randomness due to random initial values. We compared a number of trees and chose the one that gave the best fit in terms of missclassification and size of the model. See notebook `05-Walkshed-Profiles.Rmd in folder `data-raw` for details.
+
+best_evtree <- trees[[4]]
 ```
 
-```{r create-tree-plot}
-party_plot <- ev.tree |>
-  ggparty() +
+```{r generate-plot-best-tree}
+# Round the labels of the edges. The relevant information is in a dataframe produced by ggparty()
+ggparty_plot <- best_evtree |>
+  ggparty()
+
+# Round the number of digits and keep the inequality signs
+ggparty_data <- ggparty_plot$data |>
+  mutate(breaks_label = paste0(substr(breaks_label, 4, 5), 
+                               substr(breaks_label,10, 15)),
+         splitvar = case_when(splitvar == "edge_density" ~ "Edge Density",
+                              splitvar == "transitivity" ~ "Transitivity",
+                              splitvar == "normalized_motifs_3" ~ "Normalized Motifs (3)",
+                              is.na(splitvar) ~ NA))
+
+# Replace the dataframe in the ggplot object
+ggparty_plot$data <- ggparty_data 
+
+evtree_plot <- ggparty_plot +
   geom_edge() +
-  #geom_edge_label(size = 2.5) +
-  geom_node_label(aes(label = splitvar ),
-                  id = "inner",
-                  size = 2, nudge_y = -0.022) +
-  geom_node_splitvar(id = "inner", size = 4) +
-  geom_edge_label(mapping = aes(label = prettyNum(breaks_label, digits = 2)), size = 2.5) +
+  geom_node_splitvar(id = "inner", size = 3) +
+  # parse should be set to FALSE so the labels do not try to parse the inequality signs
+  geom_edge_label(mapping = aes(label = breaks_label),
+                  parse = FALSE,
+                  size = 2.5) +
   # # pass list to gglist containing all ggplot components we want to plot for each
   # # (default: terminal) node
   geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = Type),
                                         position = position_fill()),
-                               #xlab(""),
-                               #ylab(""),
-                               theme_void(),
+                               xlab(""),
+                               ylab(""),
                                scale_fill_manual(name = "Urban fabric type",
-                    values = c("#FDAE61", "#1A9850")),
-                              theme(axis.text = element_blank())))
+                                                 values = c("#FDAE61", "#1A9850")),
+                               theme(axis.text.y = element_blank(),
+                                     panel.background = element_rect(fill = NA),
+                                     axis.ticks = element_blank(),
+                                     plot.background =  element_rect(fill = NA)))) +
+  geom_node_label(line_list = list(aes(label = paste0("Leaf ", ifelse(id >= 6, id - 3, id - 2)))),
+                  line_gpar = list(list(size = 7, parse = F)),
+                  ids = "terminal",
+                  nudge_x = 0.02,
+                  nudge_y = -0.4)
 ```
 
-```{r legend-for-tree-plot}
-#creating a legend
-types_legend <- ggplot(d) +
-  geom_bar(aes(x = Type, 
-               fill = Type)) +
-  scale_fill_manual(name = "Urban fabric type",
-                    values = c("#FDAE61", "#1A9850"),
-              labels = c("Suburban", 
-                         "Urban") +
-                theme(legend.position = "bottom")) 
-types_legend <- cowplot::get_legend(types_legend)
-```     
+```{r plot-evtree, fig.cap="\\label{fig:evolutionary-tree}Results of training evolutionary tree on the attributes of the network. The dependent variable is Urban Fabric, a binary variable with values "Urban" (green) and "Suburban" (orange)"}
+evtree_plot
 
-
-```{r tree-plot, fig.cap="\\label{fig:classification-tree}Classification tree of walksheds by type of urban fabric"}
-cowplot::plot_grid(party_plot, legd_renamed, 
-                   nrow = 2,
-                   align = "v", axis = "l", rel_heights = c(6, 1), rel_widths = c(1, 1))
+ggsave(evtree_plot,
+       file = glue::glue(here::here(),"/plots/evtree.png"),
+       width = 7,
+       units = "in")
 ```
 
 
@@ -271,4 +334,5 @@ To see the details of walkshed profile calculations see notebook 06-Walkshed-Pro
 
 
 # References {-}
+
 
