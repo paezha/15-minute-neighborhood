@@ -58,17 +58,6 @@ authoryear]{elsarticle} %review=doublespace preprint=single 5p=2 column
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
-% From pandoc table feature
-\usepackage{longtable,booktabs,array}
-\usepackage{calc} % for calculating minipage widths
-% Correct order of tables after \paragraph or \subparagraph
-\usepackage{etoolbox}
-\makeatletter
-\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
-\makeatother
-% Allow footnotes in longtable head/foot
-\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
-\makesavenoteenv{longtable}
 
 
 
@@ -203,7 +192,8 @@ Specifically, these are the centroids of Hamilton's Dissemination Areas
 (DA). A DA is composed of one or more neighboring dissemination blocks
 and represents the smallest standard geographic area for which all
 census data are disseminated in Canada. Data on urban and sub-urban
-boundaries and DAs were retrieved from \citet{HamiltonData2023}.
+boundaries, DAs,and population data in 2016 were retrieved from
+\citet{HamiltonData2023}.
 
 Destinations were established as the centroids of geohashed hexagons
 within the region of interest, where Hamilton's amenities are located,
@@ -213,20 +203,22 @@ travel times to each individual amenity. Instead, we used the geohashed
 polygons as destinations, identifying the amenities within each polygon
 and assuming that the centroid of each hexagon represents the location
 of the amenities within it. Specifically, we retrieved geohashing data
-for Hamilton using the H3 system (SOURCE) and generated child hexagons
-at resolution 13, with an average area of 43.87 \(m^2\). Amenities
-location and typologies were downloaded from \citet{OpenStreetMap2023}.
+for Hamilton using the H3 system \citet{h3Package} and generated child
+hexagons at resolution 13, with an average area of 43.87 \(m^2\).
+Amenities location and their typology were downloaded from
+\citet{OpenStreetMap2023}.
 
 \section{Methods}\label{methods}
 
 The proposed method involves studying 15-minute walking neighborhoods in
-two stages. In the first stage, we assess the accessibility levels of
-Hamilton's watersheds from a normative perspective, focusing on the
-provision of opportunities. In the second stage, we characterize the
-topology urban and suburban walksheds based on a set of network
-structure attributes. Finally, we analyze the effect of walkshed size on
-urban and suburban networks, and consequently, on access to
-opportunities.
+two stages. In the first stage, we assess the accessibility of
+Hamilton's walksheds from a normative perspective, focusing on the
+availability of opportunities. In the second stage, we analyze the
+topology of urban and suburban walksheds based on various network
+structure attributes. Finally, we examine whether there are differences
+in transportation network topology between urban and suburban areas, and
+analyze how these differences affect access to opportunities within
+walksheds.
 
 \subsection{Calculation of accessibility
 levels}\label{calculation-of-accessibility-levels}
@@ -242,7 +234,17 @@ between transportation infrastructure and urban structure
 In this study, we calculate cumulative accessibility scores by summing
 the number of amenities within urban and suburban walksheds, categorized
 into the four types provided by the data source: financial, sustenance,
-healthcare, and library.
+healthcare, and library. Additionally, we extract population data of
+each walkshed. Summary statistics of population are also included in the
+analysis.
+
+Additionally, the accessibility assessment is completed by obtaining
+summary statistics of travel times in urban and suburban walksheds. To
+study the impact of urban and suburban walksheds on walking decisions,
+minimum and mean travel times to destinations are introduced into
+time-decay functions for walking decisions, as developed by Milward
+(2013). These are active travel impedance functions based on data from
+Canada.
 
 \subsection{Urban and suburban walkshed
 modelling}\label{urban-and-suburban-walkshed-modelling}
@@ -297,7 +299,7 @@ the initial conditions, we run the model from the R package evtree
 \citet{Grubinger2014} with 20 random seeds to identify the network
 variables that consistently characterize urban and suburban walksheds.
 
-Finally we
+Finally we study effects in accessibility
 
 \subsection{Walkshed size in urban and suburban
 areas}\label{walkshed-size-in-urban-and-suburban-areas}
@@ -311,7 +313,10 @@ attributes}\label{classification-of-walksheds-based-on-network-attributes}
 \includegraphics[width=0.8\linewidth]{paper_files/figure-latex/plot-evtree-1} \caption{\label{fig:evolutionary-tree}Evolutionary classification tree. The dependent variable is the fabric type: Suburban (orange), Urban (green).}\label{fig:plot-evtree}
 \end{figure}
 
-Evolutionary trees
+Evolutionary trees: discuss training procedure. We used a training
+sample and a test sample. We trained n=30 trees per batch, and saved the
+results for the batch with the best tree (5 batches). The best tree was
+selected based on the evaluation function (write equation and explain).
 
 The results of training an evolutionary classification tree are shown in
 Fig. \ref{fig:evolutionary-tree}. This model addresses our first
@@ -323,14 +328,15 @@ high, since each leaf is composed largely of a single class (77.4\% and
 80.2\% Suburban in Leaves 1 and 3 respectively, and 88.8\% and 87.9\%
 Urban in Leaves 2 and 4 respectively). Thus, there are two kinds each of
 urban and suburban walksheds, depending on the attributes of the network
-that generated them. Of the attributes in Table
-\ref{tab:network-attributes}, only two are picked up by the
-classification algorithm: edge density and motifs of size 3. The first
-attribute that helps to discriminate between urban and suburban
-walksheds is edge density. The cutoff value of edge density is 0.00590.
-Recall that edge density is the number of edges in the graph relative to
-the maximum possible number of edges--that is, compared to a fully
-connected graph. This means that the cutoff is about 0.59\% of the
+that generated them.
+
+Of the attributes in Table \ref{tab:network-attributes}, only two are
+picked up by the classification algorithm: edge density and motifs of
+size 3. The first attribute that helps to discriminate between urban and
+suburban walksheds is edge density. The cutoff value of edge density is
+0.00590. Recall that edge density is the number of edges in the graph
+relative to the maximum possible number of edges--that is, compared to a
+fully connected graph. This means that the cutoff is about 0.59\% of the
 number of edges in a fully connected graph with the same number of
 vertices. The range of values of this variable in our walksheds is
 0.117\% and 40\% (the mean is 1.246\%). But there are marked differences
@@ -340,7 +346,7 @@ seen in Table \ref{tab:skim-of-edge-density}
 \begingroup\fontsize{7}{9}\selectfont
 
 \begin{longtable}[t]{llrrrrrrr}
-\caption{\label{tab:walkshed-edge-density-by-leaf}\label{tab:skim-of-edge-density}Descriptive statistics of edge density by Leaf in classification tree}\\
+\caption{\label{tab:walkshed-edge-density-by-leaf}\label{tab:skim-of-edge-density}Descriptive statistics of edge density by Leaf in classification tree.}\\
 \toprule
 leaf & leaf description & mean & s.d. & min & first quartile & median & third quartile & max\\
 \midrule
@@ -355,63 +361,17 @@ Leaf 4 & Urban (Type II: high edge density) & 0.01092 & 0.00869 & 0.00591 & 0.00
 Table \ref{tab:skim-of-motifs} shows the values of the motifs of size 3
 by Leaf.
 
-\textbf{Variable type: numeric}
-
-\begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0875}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.4750}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
-  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}@{}}
-\toprule\noalign{}
-\begin{minipage}[b]{\linewidth}\raggedright
-leaf
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-leaf\_desc
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-mean
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-sd
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-p0
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-p25
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-p50
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-p75
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
-p100
-\end{minipage} \\
-\midrule\noalign{}
-\endhead
-\bottomrule\noalign{}
-\endlastfoot
-Leaf 1 & Suburban (Type I: low edge density) & 0.85 & 0.02 & 0.80 & 0.84
-& 0.85 & 0.86 & 0.87 \\
-Leaf 2 & Urban (Type I: low edge density) & 0.97 & 0.05 & 0.87 & 0.94 &
-0.97 & 1.00 & 1.09 \\
-Leaf 3 & Suburban (Type II: high edge density) & 0.84 & 0.07 & 0.33 &
-0.81 & 0.84 & 0.88 & 0.97 \\
-Leaf 4 & Urban (Type II: high edge density) & 1.01 & 0.03 & 0.97 & 0.99
-& 1.00 & 1.03 & 1.06 \\
-\end{longtable}
-
 \begingroup\fontsize{7}{9}\selectfont
 
 \begin{longtable}[t]{llrrrrrrr}
-\caption{\label{tab:walkshed-motifs-by-leaf}\label{tab:skim-of-motifs}Descriptive statistics of motifs of size 3 by Leaf in classification tree}\\
+\caption{\label{tab:walkshed-motifs-by-leaf}\label{tab:skim-of-motifs}Descriptive statistics of motifs of size 3 by Leaf in classification tree.}\\
 \toprule
 leaf & leaf description & mean & s.d. & min & first quartile & median & third quartile & max\\
 \midrule
-\cellcolor{gray!10}{Leaf 1} & \cellcolor{gray!10}{Suburban (Type I: low edge density)} & \cellcolor{gray!10}{0.00507} & \cellcolor{gray!10}{0.00056} & \cellcolor{gray!10}{0.00323} & \cellcolor{gray!10}{0.00469} & \cellcolor{gray!10}{0.00517} & \cellcolor{gray!10}{0.00550} & \cellcolor{gray!10}{0.00589}\\
-Leaf 2 & Urban (Type I: low edge density) & 0.00354 & 0.00128 & 0.00117 & 0.00254 & 0.00362 & 0.00450 & 0.00590\\
-\cellcolor{gray!10}{Leaf 3} & \cellcolor{gray!10}{Suburban (Type II: high edge density)} & \cellcolor{gray!10}{0.01654} & \cellcolor{gray!10}{0.02482} & \cellcolor{gray!10}{0.00591} & \cellcolor{gray!10}{0.00757} & \cellcolor{gray!10}{0.01018} & \cellcolor{gray!10}{0.01631} & \cellcolor{gray!10}{0.40000}\\
-Leaf 4 & Urban (Type II: high edge density) & 0.01092 & 0.00869 & 0.00591 & 0.00633 & 0.00710 & 0.01057 & 0.05326\\
+\cellcolor{gray!10}{Leaf 1} & \cellcolor{gray!10}{Suburban (Type I: low edge density)} & \cellcolor{gray!10}{0.84626} & \cellcolor{gray!10}{0.01615} & \cellcolor{gray!10}{0.79574} & \cellcolor{gray!10}{0.84063} & \cellcolor{gray!10}{0.85155} & \cellcolor{gray!10}{0.85727} & \cellcolor{gray!10}{0.86562}\\
+Leaf 2 & Urban (Type I: low edge density) & 0.96914 & 0.04703 & 0.86585 & 0.93915 & 0.96858 & 1.00302 & 1.09044\\
+\cellcolor{gray!10}{Leaf 3} & \cellcolor{gray!10}{Suburban (Type II: high edge density)} & \cellcolor{gray!10}{0.84114} & \cellcolor{gray!10}{0.06536} & \cellcolor{gray!10}{0.33333} & \cellcolor{gray!10}{0.80603} & \cellcolor{gray!10}{0.84407} & \cellcolor{gray!10}{0.88309} & \cellcolor{gray!10}{0.96646}\\
+Leaf 4 & Urban (Type II: high edge density) & 1.00809 & 0.02705 & 0.96774 & 0.98674 & 1.00453 & 1.03274 & 1.05860\\
 \bottomrule
 \end{longtable}
 \endgroup{}
@@ -428,6 +388,35 @@ Where are these found?
 \begin{figure}
 \includegraphics[width=0.8\linewidth]{paper_files/figure-latex/map-of-leaves-1} \caption{\label{fig:leaves-by-DA}Distribution of Leaf classes in urban and suburban Hamilton (gray area is rural Hamilton).}\label{fig:map-of-leaves}
 \end{figure}
+
+DISCUSS: there appear to be significant (?) differences between the
+sizes of the walksheds.
+
+\subsection{Area of 15-min walksheds}\label{area-of-15-min-walksheds}
+
+Walksheds in suburban areas tend to be smaller, walksheds in urban areas
+larger. Are there differences between walksheds of Type I and of Type
+II? Test differences of means.
+
+Another feature of suburban environments is that they tend to be lower
+density. Proceed to accessibility calculations.
+
+\subsection{15-min accessibility
+analysis}\label{min-accessibility-analysis}
+
+Words go here.
+
+\subsection{Implications for walking
+behavior}\label{implications-for-walking-behavior}
+
+Use \citet{Millward2013}'s impedance function(s) to discuss the
+implications of characteristics of walksheds for walking behavior,
+concretely that there is a difference in the mean time to reach
+destinations within different types of walksheds.
+
+\section{Conclusions}\label{conclusions}
+
+Words go here.
 
 \renewcommand\refname{References}
 \bibliography{../bibliography/bibliography.bib}

@@ -436,7 +436,7 @@ skim_edge_density |>
   kable(booktabs = TRUE,
         digits = 5,
         col.names = c("leaf", "leaf description", "mean", "s.d.", "min", "first quartile", "median", "third quartile", "max"),
-        caption = "\\label{tab:skim-of-edge-density}Descriptive statistics of edge density by Leaf in classification tree") |>
+        caption = "\\label{tab:skim-of-edge-density}Descriptive statistics of edge density by Leaf in classification tree.") |>
   kableExtra::kable_styling(font_size = 7, latex_options = "striped")
 ```
 
@@ -447,7 +447,7 @@ NOTE FOR DICUSSION: WHY IS THE EDGE DENSITY HIGHER IN SUBURBAN REGIONS?
 Table \ref{tab:skim-of-motifs} shows the values of the motifs of size 3 by Leaf. 
 
 ```{r walkshed-motifs-by-leaf}
-d_all |>
+skim_edge_motifs <- d_all |>
   group_by(leaf) |>
   skim_without_charts(normalized_motifs_3) |>
   yank("numeric") |>
@@ -456,11 +456,11 @@ d_all |>
   select(-c(skim_variable, n_missing, complete_rate)) |>
   select(leaf, leaf_desc, everything())
 
-skim_edge_density |>
+skim_edge_motifs |>
   kable(booktabs = TRUE,
         digits = 5,
         col.names = c("leaf", "leaf description", "mean", "s.d.", "min", "first quartile", "median", "third quartile", "max"),
-        caption = "\\label{tab:skim-of-motifs}Descriptive statistics of motifs of size 3 by Leaf in classification tree") |>
+        caption = "\\label{tab:skim-of-motifs}Descriptive statistics of motifs of size 3 by Leaf in classification tree.") |>
   kableExtra::kable_styling(font_size = 7, latex_options = "striped")
 ```
 
@@ -640,7 +640,6 @@ cowplot::save_plot(sample_sheds_by_urban_type,
 sample_sheds_by_urban_type
 ```
 
-
 Where are these found?
 ```{r map-of-leaves, fig.cap="\\label{fig:leaves-by-DA}Distribution of Leaf classes in urban and suburban Hamilton (gray area is rural Hamilton)."}
 ggplot() +
@@ -673,7 +672,12 @@ Words go here.
 
 ## Implications for walking behavior
 
-Use Millward 
+Use @Millward2013's impedance function(s) to discuss the implications of characteristics of walksheds for walking behavior, concretely that there is a difference in the mean time to reach destinations within different types of walksheds.
+
+# Conclusions
+
+Words go here.
+
 # References {-}
 
 
