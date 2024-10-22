@@ -63,7 +63,8 @@ output:
 ```{r chunk-setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE,
-                      message = FALSE)
+                      message = FALSE,
+                      out.width = "0.8\\linewidth")
 ```
 
 ```{r load-packages}
@@ -73,14 +74,17 @@ library(dplyr) # A Grammar of Data Manipulation
 library(evtree) # Evolutionary Learning of Globally Optimal Trees
 library(ggparty) # 'ggplot' Visualizations for the 'partykit' Package
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
+library(ggspatial) # Spatial Data Framework for ggplot2
 library(glue) # Interpreted String Literals
-library(gt) # Easily Create Presentation-Ready Display Tables
+library(kableExtra) # Construct Complex Table with 'kable' and Pipe Syntax
+#library(gt) # Easily Create Presentation-Ready Display Tables
 #library(rpart) # Recursive Partitioning and Regression Trees
 #library(rpart.plot) # Plot 'rpart' Models: An Enhanced Version of 'plot.rpart'
 #library(patchwork) # The Composer of Plots
 #library(partykit) # A Toolkit for Recursive Partytioning
 library(tidyr) # Tidy Messy Data
 #library(tree) # Classification and Regression Trees
+library(scales) # Scale Functions for Visualization
 library(sf) # Simple Features for R
 library(skimr) # Compact and Flexible Summaries of Data
 #library(SOMbrero) # SOM Bound to Realize Euclidean and Relational Outputs
@@ -112,6 +116,8 @@ load(file = glue::glue(here::here(),
                        "/data/walksheds_validation.rda"))
 load(file = glue::glue(here::here(),
                        "/data/walksheds_validation_net_vars.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_motif_3_count.rda"))
 ```
 
 ```{r}
@@ -177,66 +183,10 @@ d_test <- walksheds_test_net_vars |>
   drop_na() |>
   mutate(normalized_motifs_3 = motifs_3/n_edges,
          normalized_motifs_4 = motifs_4/n_edges)
+
+d_all <- bind_rows(d, 
+                   d_test)
 ```
-
-```{r best-tree}
-# Retrieve the best evolutionary tree. The algorithm of evolutionary trees has some randomness due to random initial values. We compared a number of trees and chose the one that gave the best fit in terms of missclassification and size of the model. See notebook `05-Walkshed-Profiles.Rmd in folder `data-raw` for details.
-
-best_evtree <- trees[[4]]
-```
-
-```{r generate-plot-best-tree}
-# Round the labels of the edges. The relevant information is in a dataframe produced by ggparty()
-ggparty_plot <- best_evtree |>
-  ggparty()
-
-# Round the number of digits and keep the inequality signs
-ggparty_data <- ggparty_plot$data |>
-  mutate(breaks_label = paste0(substr(breaks_label, 4, 5), 
-                               substr(breaks_label,10, 15)),
-         splitvar = case_when(splitvar == "edge_density" ~ "Edge Density",
-                              splitvar == "transitivity" ~ "Transitivity",
-                              splitvar == "normalized_motifs_3" ~ "Normalized Motifs (3)",
-                              is.na(splitvar) ~ NA))
-
-# Replace the dataframe in the ggplot object
-ggparty_plot$data <- ggparty_data 
-
-evtree_plot <- ggparty_plot +
-  geom_edge() +
-  geom_node_splitvar(id = "inner", size = 3) +
-  # parse should be set to FALSE so the labels do not try to parse the inequality signs
-  geom_edge_label(mapping = aes(label = breaks_label),
-                  parse = FALSE,
-                  size = 2.5) +
-  # # pass list to gglist containing all ggplot components we want to plot for each
-  # # (default: terminal) node
-  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = Type),
-                                        position = position_fill()),
-                               xlab(""),
-                               ylab(""),
-                               scale_fill_manual(name = "Urban fabric type",
-                                                 values = c("#FDAE61", "#1A9850")),
-                               theme(axis.text.y = element_blank(),
-                                     panel.background = element_rect(fill = NA),
-                                     axis.ticks = element_blank(),
-                                     plot.background =  element_rect(fill = NA)))) +
-  geom_node_label(line_list = list(aes(label = paste0("Leaf ", ifelse(id >= 6, id - 3, id - 2)))),
-                  line_gpar = list(list(size = 7, parse = F)),
-                  ids = "terminal",
-                  nudge_x = 0.02,
-                  nudge_y = -0.4)
-```
-
-```{r plot-evtree, fig.cap="\\label{fig:evolutionary-tree}Results of training evolutionary tree on the attributes of the network. The dependent variable is Urban Fabric, a binary variable with values "Urban" (green) and "Suburban" (orange)"}
-evtree_plot
-
-ggsave(evtree_plot,
-       file = glue::glue(here::here(),"/plots/evtree.png"),
-       width = 7,
-       units = "in")
-```
-
 
 # Introduction
 
@@ -297,20 +247,38 @@ To see the details of the accessibility calculations see notebook 04-Accessibili
 
 ### Network attributes by walkshed
 
-In this work we characterize urban and suburban walksheds based on their network structure. As a way to capture and describe the structure of networks we calculate a selection of 12 network structural attributes using the network analysis R package igraph (@IgraphManual). The set of attributes is described as follows @IgraphManual:
+In this work we characterize urban and suburban walksheds based on their network structure. As a way to capture and describe the structure of networks we calculate a selection of 12 network structural attributes using the network analysis package {igraph} [@IgraphManual]. The set of attributes that we consider for this work is described Table \ref{tab:network-attributes}.
+```{r network-attributes-descriptive-table}
+data.frame(attribute = c("Number of vertices",
+                   "Number of edges",
+                   "Diameter",
+                   "Radius",
+                   "Global efficiency",
+                   "Edge density",
+                   "Mean distance",
+                   "Girth",
+                   "Minimum cut",
+                   "Edge connectivity",
+                   "Transitivity",
+                   "Motifs (v)"),
+           description = c("The total number of vertices in a graph.",
+                           "Total number of edges in a graph.",
+                           "The longest shortest path in a graph, akin to the longest segment of a line that cuts a circle.",
+                           "Minimum of all the maximum distances between each vertex and all other vertices.",
+                           "The average of the inverse distances between all pairs of vertices.",
+                           "The ratio of the number of edges in a graph to the maximum number of possible edges (i.e., the number of edges of a point-to-point network.",
+                           "Mean length of all shortest paths from each vertex.",
+                           "The length of the shortest cycle, where a cycle is a trail where only the starting and ending point are a repeated vertex.",
+                           "The smallest number of edges that, when removed, separate a graph into two or more components.",
+                           "Minimum number of nodes that, when removed, disconnect two nodes.",
+                           "Probability that a vertex neighbors are neighbors between them.",
+                           "Isomorphic subgraphs when the number of nodes is (v). A graph with few motifs will have many unique elements; a graph with a large number of motifs will have a small number of patterns that are repeated. In this analysis we calculate motifs of size v=3 and v=4.")) |>
+  kableExtra::kable(booktabs = TRUE,
+                    caption = "\\label{tab:network-attributes}Network attributes in the analysis") |>
+  kableExtra::kable_styling(font_size = 7, latex_options = "striped") |>
+  kableExtra::column_spec(2, width = "40em")
+```
 
-- Number of vertices.
-- Number of edges.
-- Diameter: it is the length of the shortest path between the most distanced nodes in a graph.
-- Radius: it is the minimum among all the maximum distances between a vertex to all other vertices.
-- Global efficiency: the global efficiency of a network is defined as the average of inverse. distances between all pairs of vertices.´
-- Edge density: the density of a graph is the ratio of the actual number of edges and the largest possible number of edges in the graph.
-- Mean distance: mean length of all the shortest paths from or to the vertices in the network.
-- Girth: the girth of a graph is the length of the shortest cycle in it, being a cycle a non-empty trail in which only the first and last vertices are equal.
-- Minimum cut of a graph: the minimum total weight of the edges needed to remove to separate the graph into (at least) two components. 
-- Edge connectivity: it is a measure of network vulnerability, minimum number of edges to remove to disconnect two nodes (there is no longer a path between them.
-- Transitivity: it is the probability that the neighbors of a node are neighbors between them. 
-- Motifs (calculated for 3-node and 4-node sizes): it indicates the presence of particular sub-graphs that repeat themselves. In other words, a graph with a large number of motifs will tend to have few unique elements (some elements happen again, again, and again). A graph with many unique elements will have few motifs (repetitive patterns).
 <!--- 
 To see the details of the attribute calculations see notebook 03-Network-Attributes-by-Walkshed.Rmd in folder data-raw
 --->
@@ -330,12 +298,381 @@ To see the details of walkshed profile calculations see notebook 06-Walkshed-Pro
 
 
 
+# Results and discussion
+
+## Classification of walksheds based on network attributes
+
+```{r best-tree}
+# Retrieve the best evolutionary tree. The algorithm of evolutionary trees has some randomness due to random initial values. We compared a number of trees and chose the one that gave the best fit in terms of missclassification and size of the model. See notebook `05-Walkshed-Profiles.Rmd in folder `data-raw` for details.
+
+best_evtree <- trees[[4]]
+```
+
+```{r generate-plot-best-tree}
+# Round the labels of the edges. The relevant information is in a dataframe produced by ggparty()
+ggparty_plot <- best_evtree |>
+  ggparty()
+
+# Round the number of digits and keep the inequality signs
+ggparty_data <- ggparty_plot$data |>
+  mutate(breaks_label = paste0(substr(breaks_label, 4, 5), 
+                               substr(breaks_label,10, 17)),
+         splitvar = case_when(splitvar == "edge_density" ~ "Edge Density",
+                              splitvar == "transitivity" ~ "Transitivity",
+                              splitvar == "normalized_motifs_3" ~ "Normalized Motifs (3)",
+                              is.na(splitvar) ~ NA))
+
+# Replace the dataframe in the ggplot object
+ggparty_plot$data <- ggparty_data 
+
+evtree_plot <- ggparty_plot +
+  geom_edge() +
+  geom_node_splitvar(id = "inner", size = 3) +
+  # parse should be set to FALSE so the labels do not try to parse the inequality signs
+  geom_edge_label(mapping = aes(label = breaks_label),
+                  parse = FALSE,
+                  size = 2.5) +
+  # # pass list to gglist containing all ggplot components we want to plot for each
+  # # (default: terminal) node
+  geom_node_plot(gglist = list(geom_bar(aes(x = "", fill = Type),
+                                        position = position_fill()),
+                               xlab(""),
+                               ylab(""),
+                               scale_fill_manual(name = "Urban fabric type",
+                                                 values = c("#FDAE61", "#1A9850")),
+                               theme(axis.text.y = element_blank(),
+                                     panel.background = element_rect(fill = NA),
+                                     axis.ticks = element_blank(),
+                                     plot.background =  element_rect(fill = NA)))) +
+  geom_node_label(line_list = list(aes(label = paste0("Leaf ", ifelse(id >= 6, id - 3, id - 2)))),
+                  line_gpar = list(list(size = 7, parse = F)),
+                  ids = "terminal",
+                  nudge_x = 0.02,
+                  nudge_y = -0.4)
+```
+
+```{r get-legend-for-tree}
+tree_legend <- ggplot(d) +
+  geom_bar(aes(x = Type, fill = Type)) +
+  scale_fill_manual(name = "Urban fabric type",
+                    values = c("#FDAE61", "#1A9850")) +
+  #theme_void() +
+  guides(fill = guide_legend(nrow = 1)) #+
+  #theme(legend.position = "bottom")
+
+lgnd <- cowplot::get_legend(tree_legend)
+```
 
 
+```{r plot-evtree, fig.cap="\\label{fig:evolutionary-tree}Evolutionary classification tree. The dependent variable is the fabric type: Suburban (orange), Urban (green)."}
+
+evtree_plot <- cowplot::plot_grid(evtree_plot, lgnd,
+                   nrow = 2,
+                   rel_heights = c(1, 0.1))
 
 
+cowplot::save_plot(evtree_plot,
+                   nrow = 2,
+                   base_width = 7,
+                   filename = glue::glue(here::here(),"/plots/evtree.png"))
+
+evtree_plot
+```
+
+```{r add-classification-to-train-data}
+# Use the classification tree to add classes to dataframes
+
+# Training dataset
+d <- d |>
+  mutate(leaf = case_when(edge_density < 0.00590599876314162 & normalized_motifs_3 < 0.865853658536585  ~ "Leaf 1",
+                          edge_density < 0.00590599876314162 & normalized_motifs_3 >= 0.865853658536585 ~ "Leaf 2",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 < 0.967078189300412 ~ "Leaf 3",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 >= 0.967078189300412 ~ "Leaf 4") ,
+         leaf = factor(leaf))
+
+# All dataset (training and validation pooled)
+d_all <- d_all |>
+  mutate(leaf = case_when(edge_density < 0.00590599876314162 & normalized_motifs_3 < 0.865853658536585  ~ "Leaf 1",
+                          edge_density < 0.00590599876314162 & normalized_motifs_3 >= 0.865853658536585 ~ "Leaf 2",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 < 0.967078189300412 ~ "Leaf 3",
+                          edge_density >= 0.00590599876314162 & normalized_motifs_3 >= 0.967078189300412 ~ "Leaf 4") ,
+         leaf = factor(leaf))
+```
+
+```{r}
+# Compute the purity of the leafs as per training
+purity <- d |> 
+  group_by(leaf) |> 
+  summarize(urban_fabric = sum(ifelse(Type == "Urban", 
+                                      1, 
+                                      0))/n(),
+            .groups = "drop") |> 
+  mutate(purity = ifelse(leaf == "Leaf 1" | leaf == "Leaf 3", 
+                         1 - urban_fabric, 
+                         urban_fabric))
+```
 
 
+Evolutionary trees: discuss training procedure. We used a training sample and a test sample. We trained n=30 trees per batch, and saved the results for the batch with the best tree (5 batches). The best tree was selected based on the evaluation function (write equation and explain).
+
+The results of training an evolutionary classification tree are shown in Fig. \ref{fig:evolutionary-tree}. This model addresses our first research question (are networks different between urban and suburban regions?). The answer to this question is unambiguously affirmative. As seen in the figure, the tree has four terminal nodes (or leaves). The purity of the leaves (meaning the mix of classes in a leaf) is very high, since each leaf is composed largely of a single class (`r round(purity$purity[1], 3) * 100`\% and  `r round(purity$purity[3], 3) * 100`\% Suburban in Leaves 1 and 3 respectively, and `r round(purity$purity[2], 3) * 100`\% and `r round(purity$purity[4], 3) * 100`\% Urban in Leaves 2 and 4 respectively). Thus, there are two kinds each of urban and suburban walksheds, depending on the attributes of the network that generated them. 
+
+Of the attributes in Table \ref{tab:network-attributes}, only two are picked up by the classification algorithm: edge density and motifs of size 3. The first attribute that helps to discriminate between urban and suburban walksheds is edge density. The cutoff value of edge density is 0.00590. Recall that edge density is the number of edges in the graph relative to the maximum possible number of edges--that is, compared to a fully connected graph. This means that the cutoff is about 0.59% of the number of edges in a fully connected graph with the same number of vertices. The range of values of this variable in our walksheds is `r round(d_all |> pull(edge_density) |> min(), 5) * 100`\% and `r round(d_all |> pull(edge_density) |> max(), 5) * 100`\% (the mean is `r round(d_all |> pull(edge_density) |> mean(), 5) * 100`\%). But there are marked differences in the value of this attribute by Leaf in the classification tree, as seen in Table \ref{tab:skim-of-edge-density}
+
+```{r walkshed-edge-density-by-leaf}
+skim_edge_density <- d_all |>
+  group_by(leaf) |>
+  skim_without_charts(edge_density) |>
+  yank("numeric") |>
+  mutate(leaf_desc = c("Suburban (Type I: low edge density)", "Urban (Type I: low edge density)",
+                       "Suburban (Type II: high edge density)", "Urban (Type II: high edge density)")) |>
+  select(-c(skim_variable, n_missing, complete_rate)) |>
+  select(leaf, leaf_desc, everything())
+
+skim_edge_density |>
+  kable(booktabs = TRUE,
+        digits = 5,
+        col.names = c("leaf", "leaf description", "mean", "s.d.", "min", "first quartile", "median", "third quartile", "max"),
+        caption = "\\label{tab:skim-of-edge-density}Descriptive statistics of edge density by Leaf in classification tree") |>
+  kableExtra::kable_styling(font_size = 7, latex_options = "striped")
+```
+
+<!--
+NOTE FOR DICUSSION: WHY IS THE EDGE DENSITY HIGHER IN SUBURBAN REGIONS?
+-->
+
+Table \ref{tab:skim-of-motifs} shows the values of the motifs of size 3 by Leaf. 
+
+```{r walkshed-motifs-by-leaf}
+d_all |>
+  group_by(leaf) |>
+  skim_without_charts(normalized_motifs_3) |>
+  yank("numeric") |>
+  mutate(leaf_desc = c("Suburban (Type I: low edge density)", "Urban (Type I: low edge density)",
+                       "Suburban (Type II: high edge density)", "Urban (Type II: high edge density)")) |>
+  select(-c(skim_variable, n_missing, complete_rate)) |>
+  select(leaf, leaf_desc, everything())
+
+skim_edge_density |>
+  kable(booktabs = TRUE,
+        digits = 5,
+        col.names = c("leaf", "leaf description", "mean", "s.d.", "min", "first quartile", "median", "third quartile", "max"),
+        caption = "\\label{tab:skim-of-motifs}Descriptive statistics of motifs of size 3 by Leaf in classification tree") |>
+  kableExtra::kable_styling(font_size = 7, latex_options = "striped")
+```
+
+The differences between walksheds in various types of urban and suburban fabric are better appreciated by means of some examples. Fig. REF 
+
+```{r}
+walksheds <- walksheds |> 
+  left_join(d_all |>
+              st_drop_geometry() |>
+              select(GeoUID,
+                     origin_type,
+                     leaf),
+            by = c("GeoUID", 
+                   "origin_type"))
+```
+
+```{r select-plot-leaf-1}
+set.seed(29919)
+
+walkshed_leaf_1 <- walksheds |> 
+  #ungroup () |>
+  filter(leaf == "Leaf 1") |>
+  slice_sample(n = 1)
+
+leaf_1_plot <- hamilton_net$edges |>
+  st_intersection(walkshed_leaf_1)
+
+leaf_1_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_1_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_1 <- walkshed_leaf_1 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_1 <- st_bbox(leaf_1_plot)[3] - st_bbox(leaf_1_plot)[1]
+max_y_1 <- st_bbox(leaf_1_plot)[4] - st_bbox(leaf_1_plot)[2]
+center_1 <- c(max_x_1/2 + st_bbox(leaf_1_plot)[1], max_y_1/2 + st_bbox(leaf_1_plot)[2])
+```
+
+```{r select-plot-leaf-2}
+set.seed(29919)
+
+walkshed_leaf_2 <- walksheds |> 
+  filter(leaf == "Leaf 2") |>
+  slice_sample(n = 1)
+
+leaf_2_plot <- hamilton_net$edges |>
+  st_intersection(walkshed_leaf_2)
+
+leaf_2_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_2_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_2 <- walkshed_leaf_2 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_2 <- st_bbox(leaf_2_plot)[3] - st_bbox(leaf_2_plot)[1]
+max_y_2 <- st_bbox(leaf_2_plot)[4] - st_bbox(leaf_2_plot)[2]
+center_2 <- c(max_x_2/2 + st_bbox(leaf_2_plot)[1], max_y_2/2 + st_bbox(leaf_2_plot)[2])
+```
+
+```{r select-plot-leaf-3}
+set.seed(29922)
+
+walkshed_leaf_3 <- walksheds |> 
+  filter(leaf == "Leaf 3") |>
+  slice_sample(n = 1)
+
+leaf_3_plot <- hamilton_net$edges |>
+  st_intersection(walkshed_leaf_3)
+
+leaf_3_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_3_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_3 <- walkshed_leaf_3 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_3 <- st_bbox(leaf_3_plot)[3] - st_bbox(leaf_3_plot)[1]
+max_y_3 <- st_bbox(leaf_3_plot)[4] - st_bbox(leaf_3_plot)[2]
+center_3 <- c(max_x_3/2 + st_bbox(leaf_3_plot)[1], max_y_3/2 + st_bbox(leaf_3_plot)[2])
+```
+
+```{r select-plot-leaf-4}
+set.seed(299192245)
+
+walkshed_leaf_4 <- walksheds |> 
+  filter(leaf == "Leaf 4") |>
+  slice_sample(n = 1)
+
+leaf_4_plot <- hamilton_net$edges |>
+  st_intersection(walkshed_leaf_4)
+
+leaf_4_plot <- hamilton_net$edges |>
+  filter(edge_index %in% leaf_4_plot$edge_index) |>
+  st_transform(crs = st_crs(urban_types))
+
+walkshed_leaf_4 <- walkshed_leaf_4 |> 
+  st_transform(crs = st_crs(urban_types))
+
+# Find the center of the bounding box; we'll use it to plot on a false origin and fixed extent
+max_x_4 <- st_bbox(leaf_4_plot)[3] - st_bbox(leaf_4_plot)[1]
+max_y_4 <- st_bbox(leaf_4_plot)[4] - st_bbox(leaf_4_plot)[2]
+center_4 <- c(max_x_4/2 + st_bbox(leaf_4_plot)[1], max_y_4/2 + st_bbox(leaf_4_plot)[2])
+```
+
+```{r max-extent}
+# Find the max extent in x and y to ensure that all plots are at the same scale
+max_x <- max(c(max_x_1, max_x_2, max_x_3, max_x_4))
+max_y <- max(c(max_y_1, max_y_2, max_y_3, max_y_4))
+```
+
+```{r generate-plots-for-all-leaves}
+leaf_1_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_1 |>
+            mutate(geometry = geometry - center_1),
+          color = "#FDAE61",
+          fill = "#FDAE61") +
+  geom_sf(data = leaf_1_plot |>
+            mutate(geometry = geometry - center_1)) +
+  coord_sf(xlim = c(-max_x/2, max_x/2),
+           ylim = c(- max_y/2, max_y/2)) +
+  theme_void()
+
+leaf_2_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_2 |>
+            mutate(geometry = geometry - center_2),
+          color = "#1A9850",
+          fill = "#1A9850") +
+  geom_sf(data = leaf_2_plot |>
+            mutate(geometry = geometry - center_2)) +
+  coord_sf(xlim = c(-max_x/2, max_x/2),
+           ylim = c(- max_y/2, max_y/2)) +
+  theme_void()
+
+leaf_3_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_3 |>
+            mutate(geometry = geometry - center_3),
+          color = "#FDAE61",
+          fill = "#FDAE61") +
+  geom_sf(data = leaf_3_plot |>
+            mutate(geometry = geometry - center_3)) +
+  coord_sf(xlim = c(-max_x/2, max_x/2),
+           ylim = c(- max_y/2, max_y/2)) +
+  theme_void()
+
+leaf_4_gg <- ggplot() +
+  geom_sf(data = walkshed_leaf_4 |>
+            mutate(geometry = geometry - center_4),
+          color = "#1A9850",
+          fill = "#1A9850") +
+  geom_sf(data =leaf_4_plot |>
+            mutate(geometry = geometry - center_4)) +
+  coord_sf(xlim = c(-max_x/2, max_x/2),
+           ylim = c(- max_y/2, max_y/2)) +
+  theme_void()
+```
+
+
+```{r sample-sheds-by-leaf-plot, fig.cap="\\label{fig:sample-sheds}Examples of walksheds and their networks by Leaf in the classifactions."}
+sample_sheds_by_urban_type <- cowplot::plot_grid(leaf_1_gg, leaf_2_gg, leaf_3_gg, leaf_4_gg,
+                   nrow = 2, 
+                   ncol = 2,
+                   labels = c("Leaf 1 (Suburban Type I)", "Leaf 2 (Urban Type I)", 
+                              "Leaf 3 (Suburban Type II)", "Leaf 4 (Urban Type II)"),
+                   label_size = 7)
+
+cowplot::save_plot(sample_sheds_by_urban_type,
+                   filename = glue::glue(here::here(),"/plots/sample_sheds_by_urban_type.png"),
+                   nrow = 2,
+                   ncol = 3,
+                   base_width = 3.5)
+
+sample_sheds_by_urban_type
+```
+
+
+Where are these found?
+```{r map-of-leaves, fig.cap="\\label{fig:leaves-by-DA}Distribution of Leaf classes in urban and suburban Hamilton (gray area is rural Hamilton)."}
+ggplot() +
+  geom_sf(data = hamilton_cma,
+          fill = "lightgray") +
+  geom_sf(data = urban_hammer_da |> 
+  left_join(d |> 
+              select(GeoUID, 
+                     leaf), 
+            by = "GeoUID"),
+          aes(fill = leaf)) +
+  scale_fill_manual(values = c("Leaf 1" = scales::muted("#FDAE61"), "Leaf 2" = scales::muted("#1A9850"), "Leaf 3" = "#FDAE61", "Leaf 4" = "#1A9800")) +
+  coord_sf(xlim = c(-80.04, -79.63),
+           ylim = c(43.115, 43.35)) +
+  theme_void() +
+  theme(legend.position = "bottom")
+```
+
+DISCUSS: there appear to be significant (?) differences between the sizes of the walksheds. 
+
+## Area of 15-min walksheds
+
+Walksheds in suburban areas tend to be smaller, walksheds in urban areas larger. Are there differences between walksheds of Type I and of Type II? Test differences of means.
+
+Another feature of suburban environments is that they tend to be lower density. Proceed to accessibility calculations.
+
+## 15-min accessibility analysis
+
+Words go here.
+
+## Implications for walking behavior
+
+Use Millward 
 # References {-}
+
+
 
 

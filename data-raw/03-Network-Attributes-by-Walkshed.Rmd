@@ -33,10 +33,45 @@ library(tidyr) # Tidy Messy Data
 ```
 
 ```{r}
-load(file = glue::glue(here::here(), "/data/hamilton_net.rda"))
-load(file = glue::glue(here::here(), "/data/urban_hammer_da.rda"))
-load(file = glue::glue(here::here(), "/data/walksheds_da.rda"))
-load(file = glue::glue(here::here(), "/data/walksheds_validation.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/hamilton_net.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/urban_hammer_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_da.rda"))
+load(file = glue::glue(here::here(),
+                       "/data/walksheds_validation.rda"))
+```
+
+Bind the centroid and non-centroid walksheds (da and validations, but bound could be used in more imaginative ways for cross-validation, for example):
+```{r}
+walksheds <- bind_rows(walksheds_da,
+                       walksheds_validation) |>
+  mutate(origin_type = rep(c("centroid", "non-centroid"), each = nrow(walksheds_da)))
+```
+
+Obtain training and validation datasets by sampling from centroid and non-centroid walksheds:
+```{r}
+seed <- 3626425
+
+# slice_sample() will select one of two rows for each DA at random
+walksheds_train <- walksheds |>
+  group_by(GeoUID) |>
+  slice_sample(prop = 0.5)
+
+# The antijoin will keep the rows in walksheds that do not appear in walksheds_train
+walksheds_test <- walksheds |>
+  anti_join(walksheds_train |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+```
+
+Bind the centroid and non-centroid dataframes (da and validations):
+```{r}
+walksheds <- bind_rows(walksheds_train,
+                                walksheds_validation) |>
+  mutate(origin_type = rep(c("centroid", "non-centroid"), each = nrow(walksheds_da)))
 ```
 
 Extract the edges of the network:
@@ -192,7 +227,8 @@ walksheds_da_net_vars |>
   group_by(Type) |>
   skim()
 ```
-Summarize the walksheds for 
+
+Summarize the walksheds:
 ```{r}
 walksheds_validation_net_vars |>
   select(-girth) |>
@@ -206,13 +242,35 @@ Transitivity: it is the probability that the neighbors of a node are neighbors b
 
 Motifs (calculated for size 3 and 4): It indicates the presence of particular subgraphs that repeat themselves. In other words, a graph with a large number of motifs will tend to have few unique elements (some elements happen again, again, and again). A graph with many unique elements will have few motifs (repetitive patterns).
 
+Bind the centroid and non-centroid dataframes with walkshed network variables (da and validations):
+```{r}
+walksheds_net_vars <- bind_rows(walksheds_da_net_vars,
+                                walksheds_validation_net_vars) |>
+  mutate(origin_type = rep(c("centroid", "non-centroid"), each = nrow(walksheds_da)))
+```
+
+Now filter from the network variables to obtain training and test datasets:
+```{r}
+walksheds_train_net_vars <- walksheds_net_vars |>
+  semi_join(walksheds_train |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+
+walksheds_test_net_vars <- walksheds_net_vars |>
+  semi_join(walksheds_test |>
+              st_drop_geometry() |>
+              select(GeoUID, origin_type),
+            by = c("GeoUID", "origin_type"))
+```
+
 Example of pedshed with network:
 ```{r}
-sample_walkshed <- sample.int(nrow(walksheds_da), 1)
+sample_walkshed <- sample.int(nrow(walksheds), 1)
 
 wsnet <- hamilton_edges |>
   st_filter(
-    walksheds_da[sample_walkshed,],
+    walksheds[sample_walkshed,],
     .predicate = st_intersects)
 
 # Extract the full edges that were found to intersect the walkshed
@@ -220,7 +278,7 @@ wsnet <- hamilton_edges |>
   filter(edge_index %in% wsnet$edge_index)
 
 ggplot() +
-  geom_sf(data = walksheds_da[sample_walkshed,]) +
+  geom_sf(data = walksheds[sample_walkshed,]) +
   geom_sf(data = wsnet) +
   theme_void()
 
@@ -228,11 +286,11 @@ ggplot() +
 
 Explore the motifs. First, extract a walkshed and convert it to sfnetworks class:
 ```{r}
-sample_walkshed <- sample.int(nrow(walksheds_da), 1)
+sample_walkshed <- sample.int(nrow(walksheds), 1)
 
 wsnet <- hamilton_edges |>
   st_filter(
-    walksheds_da[sample_walkshed,],
+    walksheds[sample_walkshed,],
     .predicate = st_intersects)
 
 # Extract the full edges that were found to intersect the walkshed
@@ -243,7 +301,7 @@ wsnet <- hamilton_edges |>
 wsnet <- as_sfnetwork(wsnet)
 
 ggplot() +
-  geom_sf(data = walksheds_da[sample_walkshed,]) +
+  geom_sf(data = walksheds[sample_walkshed,]) +
   geom_sf(data = wsnet |>
             activate(edges) |>
             st_as_sf()
@@ -305,12 +363,13 @@ count_motifs(wsnet)
 
 Initialize a data frame to save the motif counts:
 ```{r}
-walksheds_da_motif_3_count <- data.frame(matrix(0, nrow = nrow(walksheds_da), ncol = 16))
+walksheds_motif_3_count <- data.frame(matrix(0, nrow = nrow(walksheds), ncol = 16))
 
-walksheds_da_motif_3_count <- walksheds_da_motif_3_count |>
+walksheds_motif_3_count <- walksheds_motif_3_count |>
   rename_with(~ paste0("iso_class_", c(0:15)), starts_with("X"))
 
-DA <- numeric(length = nrow(walksheds_da))
+DA <- numeric(length = nrow(walksheds))
+TYPE <- numeric(length = nrow(walksheds))
 ```
 
 Compute the number of motifs of each class in the walksheds:
@@ -318,10 +377,10 @@ Compute the number of motifs of each class in the walksheds:
 # Time algorithm
 start.time <- Sys.time()
 
-for(i in 1:nrow(walksheds_da)){
-  wsnet <- hamilton_edges |>
+for(i in 1:nrow(walksheds)){
+  #wsnet <- hamilton_edges |>
     st_filter(
-      walksheds_da[i,],
+      walksheds[i,],
       .predicate = st_intersects)
   
   wsnet <- hamilton_edges |> 
@@ -329,45 +388,30 @@ for(i in 1:nrow(walksheds_da)){
   
   # Convert to sfnetwork
   wsnet <- as_sfnetwork(wsnet)
-  walksheds_da_motif_3_count[i,] <- motifs(wsnet)
-  DA[i] <- walksheds_da$GeoUID
+  walksheds_motif_3_count[i,] <- motifs(wsnet)
 }
 
-walksheds_da_motif_3_count <- cbind(DA,
-                                    walksheds_da_motif_3_count)
+walksheds_motif_3_count <- walksheds_motif_3_count |>
+  mutate(GeoUID = walksheds$GeoUID,
+         Type = walksheds$Type,
+         origin_type = walksheds$origin_type) |>
+  select(GeoUID, Type, origin_type, starts_with("iso"))
 
 end.time <- Sys.time()
 time.taken <- end.time - start.time
 time.taken
 ```
 
-Time difference:
-```{r}
-time.taken
-```
-
-Joing urban fabric type:
-```{r}
-walksheds_da_motif_3_count <- walksheds_da_motif_3_count |>
-  rename(GeoUID = DA) |>
-  left_join(walksheds_da |>
-              st_drop_geometry(),
-            by = "GeoUID") |>
-  select(GeoUID,
-         Type,
-         starts_with("iso_class"))
-```
-
-
 Save the data object:
 ```{r}
-save(walksheds_da_motif_3_count, 
-     file = glue::glue(here::here(), "/data/walksheds_da_motif_3_count.rda"), compress = "xz")
+save(walksheds_motif_3_count, 
+     file = glue::glue(here::here(), "/data/walksheds_motif_3_count.rda"), 
+     compress = "xz")
 ```
 
 Summary of motif counts:
 ```{r}
-summary(walksheds_da_motif_3_count)
+summary(walksheds_motif_3_count)
 ```
 
 The only motifs present are class 10 and class 15:
@@ -395,7 +439,7 @@ iso_3_10_plot + iso_3_15_plot
 
 Check walksheds with low number of motifs (normalized):
 ```{r}
-d <- walksheds_da_net_vars |>
+d <- walksheds_net_vars |>
                   drop_na() |>
   mutate(normalized_motifs_3 = motifs_3/n_edges,
          normalized_motifs_4 = motifs_4/n_edges)
@@ -409,7 +453,7 @@ ID <- "35250947" #"35250992"# "35250317"
 
 wsnet <- hamilton_edges |>
   st_filter(
-    walksheds_da |> filter(GeoUID == ID),
+    walksheds |> filter(GeoUID == ID, origin_type == "centroid"),
     .predicate = st_intersects)
 
 # Extract the full edges that were found to intersect the walkshed
@@ -423,10 +467,10 @@ wsnet <- as_sfnetwork(wsnet)
 Plot chosen walkshed:
 ```{r}
 ggplot()  +
-  geom_sf(data = urban_hammer_da |> 
-            filter(GeoUID == ID), 
+  geom_sf(data = urban_hammer_da |>
+            filter(GeoUID == ID),
           fill = "red") +
-  geom_sf(data = walksheds_da |>
+  geom_sf(data = walksheds |>
             filter(GeoUID == ID),
           color = "blue",
           fill = "blue") +
@@ -501,28 +545,19 @@ ggplot() +
 
 Almost all elements of the network are part of a motif. But the number of motifs is low, which suggests that a large number of dead ends tends to reduce the number of motifs.
 
-Degree distribution:
-```{r}
-ggplot(data = data.frame(degree = degree(wsnet)) |>
-         mutate(degree = factor(degree,
-                                ordered = TRUE))|>
-         group_by(degree) |>
-         summarize(count = n())) +
-  geom_col(aes(x = degree, y = count))
-```
-
 Check walksheds with high number of motifs (normalized):
 ```{r}
 d |> filter(normalized_motifs_3 > 1.07)
 ```
 
+<!--
 Choose a walkshed with high number of motifs:
 ```{r}
-ID <- "35250677" #
+ID <- "35250675" #
 
 wsnet <- hamilton_edges |>
   st_filter(
-    walksheds_da |> filter(GeoUID == ID),
+    walksheds |> filter(GeoUID == ID, origin_type == "centroid"),
     .predicate = st_intersects)
 
 # Extract the full edges that were found to intersect the walkshed
@@ -533,7 +568,6 @@ wsnet <- hamilton_edges |>
 wsnet <- as_sfnetwork(wsnet)
 ```
 
-<!--
 Find the motifs of class 10 and 15 in wsnet:
 ```{r}
 iso_class_10_list <- subgraph_isomorphisms(size_3_iso[[10]], 
@@ -544,7 +578,6 @@ iso_class_15_list <- subgraph_isomorphisms(size_3_iso[[15]],
                                            wsnet, 
                                            method = "vf2")
 ```
-
 
 Extract the isomorphs of class 10 from the network:
 ```{r message=FALSE}
@@ -577,8 +610,8 @@ for(i in 2:length(iso_class_15_list)){
 Plot the motifs of class both classes:
 ```{r}
 ggplot() + 
-  geom_sf(data = walksheds_da |>
-            filter(GeoUID == ID)) +
+  geom_sf(data = walksheds |>
+            filter(GeoUID == ID, origin_type == "centroid")) +
   geom_sf(data = wsnet |>
             activate(edges) |>
             st_as_sf()) +

@@ -34,7 +34,6 @@ authoryear]{elsarticle} %review=doublespace preprint=single 5p=2 column
 \usepackage[]{natbib}
 \bibliographystyle{plainnat}
 
-\usepackage{graphicx}
 \ifxetex
   \usepackage[setpagesize=false, % page size defined by xetex
               unicode=false, % unicode breaks when used with xetex
@@ -59,9 +58,34 @@ authoryear]{elsarticle} %review=doublespace preprint=single 5p=2 column
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
+% From pandoc table feature
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
 
 
 
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
 
 
 
@@ -127,18 +151,6 @@ neighborhoods \sep Pedshed \sep Walkability \sep Accessibility \sep
   
  \end{frontmatter}
 
-The aim is to train a classification tree to profile urban and suburban
-walksheds based on the attributes of the network. We need to drop 1
-observation that has an NA in \texttt{transitivity}:
-
-\begin{verbatim}
-## pred
-##   0   1 
-## 114 228
-\end{verbatim}
-
-\includegraphics{paper_files/figure-latex/unnamed-chunk-3-1.pdf}
-
 \section{Introduction}\label{introduction}
 
 \begin{quote}
@@ -154,26 +166,36 @@ fifteen-minutes neighborhoods \citep{alimi2020}.
 \citet{knight2018walkable} \citet{liu2022toward}
 \citet{pozoukidou2021fifteen} \citet{weng2019fifteen}
 
-15-minute walking neighborhoods are studied, and their accessibility
-levels assessed (positive analysis). Optimal opportunity landscapes are
-then used to simulate equivalent opportunity landscapes throughout the
-region. Accessibility is then reanalyzed from the normative perspective
-of the provision of opportunities. The results of this analysis are
-finally correlated to neighborhood network attributes, including
-connectivity, centrality, and clustering
+We address the following research questions:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Is there a difference in the transportation network topology between
+  urban and suburban areas within 15-minute walking distances?
+\item
+  If such a difference exists, what is its effect on the 15-minute
+  walksheds in terms of accessibility, where accessibility is understood
+  as the provision of opportunities?
+\end{enumerate}
 
 \section{Data}\label{data}
 
-The data used to study 15-minute walking neighborhoods in the city of
-Hamilton was obtained by extracting relevant attributes of the street
-network within 15-minute pedestrian sheds. These sheds were calculated
-for each neighborhood as polygon representations of origin-destination
-walking time matrices, with a maximum travel time of 15 minutes.
-Walkshed calculations were generated using the travel\_time\_matrix
-function for walking from the \{r5r\} R package. This process involved
-defining the street network, as well as the origins and destinations of
-walking trips. The street network data for these calculations was
-sourced from OpenStreetMap \citet{OpenStreetMap2023}.
+Relevant data to develop this paper comprises to use 15-min pedestrian
+sheds (or walksehds) classified into urban and suburban types in
+Hamilton.
+
+15-minute walksheds in the city of Hamilton were obtained by extracting
+relevant structural attributes of the street network within 15-minute
+pedestrian sheds. These sheds were calculated for each shed as polygon
+representations of origin-destination walking time matrices, with a
+maximum travel time of 15 minutes. Walkshed calculations were generated
+using the travel\_time\_matrix function for walking from the \{r5r\} R
+package. This process involved defining the street network, as well as
+the origins and destinations of walking trips. The street network data
+for these calculations was sourced from OpenStreetMap
+\citet{OpenStreetMap2023}.\\
 
 The origins we established are proxies for the centroids of
 neighborhoods in the urban and peri-urban areas of the city of Hamilton.
@@ -193,16 +215,18 @@ and assuming that the centroid of each hexagon represents the location
 of the amenities within it. Specifically, we retrieved geohashing data
 for Hamilton using the H3 system (SOURCE) and generated child hexagons
 at resolution 13, with an average area of 43.87 \(m^2\). Amenities
-location and attributes were downloaded from \citet{OpenStreetMap2023}.
+location and typologies were downloaded from \citet{OpenStreetMap2023}.
 
 \section{Methods}\label{methods}
 
-The method proposed involves to study 15-minute walking neighborhoods in
-two stages. The first stage comprises assessing accessibility levels
-from the normative perspective of the provision of opportunities. In the
-second stage, the results of this analysis are correlated to
-neighborhood network attributes, including connectivity, centrality, and
-clustering.
+The proposed method involves studying 15-minute walking neighborhoods in
+two stages. In the first stage, we assess the accessibility levels of
+Hamilton's watersheds from a normative perspective, focusing on the
+provision of opportunities. In the second stage, we characterize the
+topology urban and suburban walksheds based on a set of network
+structure attributes. Finally, we analyze the effect of walkshed size on
+urban and suburban networks, and consequently, on access to
+opportunities.
 
 \subsection{Calculation of accessibility
 levels}\label{calculation-of-accessibility-levels}
@@ -217,64 +241,193 @@ between transportation infrastructure and urban structure
 
 In this study, we calculate cumulative accessibility scores by summing
 the number of amenities within urban and suburban walksheds, categorized
-into four types: financial, sustenance, healthcare, and library.
+into the four types provided by the data source: financial, sustenance,
+healthcare, and library.
 
-\subsection{Walkshed network attributes by
-walkshed}\label{walkshed-network-attributes-by-walkshed}
+\subsection{Urban and suburban walkshed
+modelling}\label{urban-and-suburban-walkshed-modelling}
 
-We characterize urban and suburban walksheds by means of their network
-attributes. We selected 11 of the network attributes from those proposed
-in R/igraph, a widely used network analysis R library
-\citet{IgraphManual}.
+\subsubsection{Network attributes by
+walkshed}\label{network-attributes-by-walkshed}
 
-\begin{itemize}
-\tightlist
-\item
-  Number of vertices.
-\item
-  Number of edges.
-\item
-  Diameter.
-\item
-  Radius.
-\item
-  Global efficiency: the global efficiency of a network is defined as
-  the average of inverse. distances between all pairs of vertices.´
-\item
-  Edge density: the density of a graph is the ratio of the actual number
-  of edges and the largest possible number of edges in the graph.
-\item
-  Mean distance: mean length of all the shortest paths from or to the
-  vertices in the network.
-\item
-  Girth: the girth of a graph is the length of the shortest circle in
-  it. Minimum cut of a graph: the minimum total weight of the edges
-  needed to remove to separate the graph into (at least) two components.
-\item
-  Edge connectivity: it is a measure of network vulnerability, minimum
-  number of edges to remove to disconnect two nodes (there is no longer
-  a path between them.
-\item
-  Transitivity: it is the probability that the neighbors of a node are
-  neighbors between them. In a Manhattan-style grid this number will be
-  low because there will be lots and lots of squares.
-\item
-  Motifs (calculated for size 3 and 4): It indicates the presence of
-  particular subgraphs that repeat themselves. In other words, a graph
-  with a large number of motifs will tend to have few unique elements
-  (some elements happen again, again, and again). A graph with many
-  unique elements will have few motifs (repetitive patterns).
-\end{itemize}
+In this work we characterize urban and suburban walksheds based on their
+network structure. As a way to capture and describe the structure of
+networks we calculate a selection of 12 network structural attributes
+using the network analysis package \{igraph\} \citep{IgraphManual}. The
+set of attributes that we consider for this work is described Table
+\ref{tab:network-attributes}. \begingroup\fontsize{7}{9}\selectfont
 
-\subsection{Walkshed classification}\label{walkshed-classification}
+\begin{longtable}[t]{l>{\raggedright\arraybackslash}p{40em}}
+\caption{\label{tab:network-attributes-descriptive-table}\label{tab:network-attributes}Network attributes in the analysis}\\
+\toprule
+attribute & description\\
+\midrule
+\cellcolor{gray!10}{Number of vertices} & \cellcolor{gray!10}{The total number of vertices in a graph.}\\
+Number of edges & Total number of edges in a graph.\\
+\cellcolor{gray!10}{Diameter} & \cellcolor{gray!10}{The longest shortest path in a graph, akin to the longest segment of a line that cuts a circle.}\\
+Radius & Minimum of all the maximum distances between each vertex and all other vertices.\\
+\cellcolor{gray!10}{Global efficiency} & \cellcolor{gray!10}{The average of the inverse distances between all pairs of vertices.}\\
+\addlinespace
+Edge density & The ratio of the number of edges in a graph to the maximum number of possible edges (i.e., the number of edges of a point-to-point network.\\
+\cellcolor{gray!10}{Mean distance} & \cellcolor{gray!10}{Mean length of all shortest paths from each vertex.}\\
+Girth & The length of the shortest cycle, where a cycle is a trail where only the starting and ending point are a repeated vertex.\\
+\cellcolor{gray!10}{Minimum cut} & \cellcolor{gray!10}{The smallest number of edges that, when removed, separate a graph into two or more components.}\\
+Edge connectivity & Minimum number of nodes that, when removed, disconnect two nodes.\\
+\addlinespace
+\cellcolor{gray!10}{Transitivity} & \cellcolor{gray!10}{Probability that a vertex neighbors are neighbors between them.}\\
+Motifs (v) & Isomorphic subgraphs when the number of nodes is (v). A graph with few motifs will have many unique elements; a graph with a large number of motifs will have a small number of patterns that are repeated. In this analysis we calculate motifs of size v=3 and v=4.\\
+\bottomrule
+\end{longtable}
+\endgroup{}
 
-To profile urban and suburban walksheds based on the attributes of the
-network we use a classification tree. In particular We use a technique
-with evolutionary trees - an alternative to classification trees that is
-less affected by the greediness of the algorithm. Since evolutionary
-trees have some randomness (for the initial values), we try several to
-find whether there are patterns. In this case we use four different
-random seeds.
+\subsubsection{Modelling}\label{modelling}
+
+To model urban and suburban walksheds, we employ a classification tree
+approach using the set topology attributes calculated in the previous
+stage. Classification trees are machine learning techniques used for
+both regression and classification, widely appreciated in various
+disciplines for their ability to represent knowledge through decision
+rules, making them easy to interpret and analyze \citet{Loh2011}
+\citet{James2013} \citet{Paez2019Trees}. Specifically, we utilize
+evolutionary trees, a variant of decision trees that are less
+constrained by the limitations of greedy top-down induction algorithms
+\citet{Cha2009} \citet{Kretowski2007} \citet{Grubinger2014}. Since
+evolutionary trees use a genetic algorithm that introduces randomness in
+the initial conditions, we run the model from the R package evtree
+\citet{Grubinger2014} with 20 random seeds to identify the network
+variables that consistently characterize urban and suburban walksheds.
+
+Finally we
+
+\subsection{Walkshed size in urban and suburban
+areas}\label{walkshed-size-in-urban-and-suburban-areas}
+
+\section{Results and discussion}\label{results-and-discussion}
+
+\subsection{Classification of walksheds based on network
+attributes}\label{classification-of-walksheds-based-on-network-attributes}
+
+\begin{figure}
+\includegraphics[width=0.8\linewidth]{paper_files/figure-latex/plot-evtree-1} \caption{\label{fig:evolutionary-tree}Evolutionary classification tree. The dependent variable is the fabric type: Suburban (orange), Urban (green).}\label{fig:plot-evtree}
+\end{figure}
+
+Evolutionary trees
+
+The results of training an evolutionary classification tree are shown in
+Fig. \ref{fig:evolutionary-tree}. This model addresses our first
+research question (are networks different between urban and suburban
+regions?). The answer to this question is unambiguously affirmative. As
+seen in the figure, the tree has four terminal nodes (or leaves). The
+purity of the leaves (meaning the mix of classes in a leaf) is very
+high, since each leaf is composed largely of a single class (77.4\% and
+80.2\% Suburban in Leaves 1 and 3 respectively, and 88.8\% and 87.9\%
+Urban in Leaves 2 and 4 respectively). Thus, there are two kinds each of
+urban and suburban walksheds, depending on the attributes of the network
+that generated them. Of the attributes in Table
+\ref{tab:network-attributes}, only two are picked up by the
+classification algorithm: edge density and motifs of size 3. The first
+attribute that helps to discriminate between urban and suburban
+walksheds is edge density. The cutoff value of edge density is 0.00590.
+Recall that edge density is the number of edges in the graph relative to
+the maximum possible number of edges--that is, compared to a fully
+connected graph. This means that the cutoff is about 0.59\% of the
+number of edges in a fully connected graph with the same number of
+vertices. The range of values of this variable in our walksheds is
+0.117\% and 40\% (the mean is 1.246\%). But there are marked differences
+in the value of this attribute by Leaf in the classification tree, as
+seen in Table \ref{tab:skim-of-edge-density}
+
+\begingroup\fontsize{7}{9}\selectfont
+
+\begin{longtable}[t]{llrrrrrrr}
+\caption{\label{tab:walkshed-edge-density-by-leaf}\label{tab:skim-of-edge-density}Descriptive statistics of edge density by Leaf in classification tree}\\
+\toprule
+leaf & leaf description & mean & s.d. & min & first quartile & median & third quartile & max\\
+\midrule
+\cellcolor{gray!10}{Leaf 1} & \cellcolor{gray!10}{Suburban (Type I: low edge density)} & \cellcolor{gray!10}{0.00507} & \cellcolor{gray!10}{0.00056} & \cellcolor{gray!10}{0.00323} & \cellcolor{gray!10}{0.00469} & \cellcolor{gray!10}{0.00517} & \cellcolor{gray!10}{0.00550} & \cellcolor{gray!10}{0.00589}\\
+Leaf 2 & Urban (Type I: low edge density) & 0.00354 & 0.00128 & 0.00117 & 0.00254 & 0.00362 & 0.00450 & 0.00590\\
+\cellcolor{gray!10}{Leaf 3} & \cellcolor{gray!10}{Suburban (Type II: high edge density)} & \cellcolor{gray!10}{0.01654} & \cellcolor{gray!10}{0.02482} & \cellcolor{gray!10}{0.00591} & \cellcolor{gray!10}{0.00757} & \cellcolor{gray!10}{0.01018} & \cellcolor{gray!10}{0.01631} & \cellcolor{gray!10}{0.40000}\\
+Leaf 4 & Urban (Type II: high edge density) & 0.01092 & 0.00869 & 0.00591 & 0.00633 & 0.00710 & 0.01057 & 0.05326\\
+\bottomrule
+\end{longtable}
+\endgroup{}
+
+Table \ref{tab:skim-of-motifs} shows the values of the motifs of size 3
+by Leaf.
+
+\textbf{Variable type: numeric}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0875}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.4750}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}
+  >{\raggedleft\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0625}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+leaf
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+leaf\_desc
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+mean
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+sd
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+p0
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+p25
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+p50
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+p75
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedleft
+p100
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Leaf 1 & Suburban (Type I: low edge density) & 0.85 & 0.02 & 0.80 & 0.84
+& 0.85 & 0.86 & 0.87 \\
+Leaf 2 & Urban (Type I: low edge density) & 0.97 & 0.05 & 0.87 & 0.94 &
+0.97 & 1.00 & 1.09 \\
+Leaf 3 & Suburban (Type II: high edge density) & 0.84 & 0.07 & 0.33 &
+0.81 & 0.84 & 0.88 & 0.97 \\
+Leaf 4 & Urban (Type II: high edge density) & 1.01 & 0.03 & 0.97 & 0.99
+& 1.00 & 1.03 & 1.06 \\
+\end{longtable}
+
+\begingroup\fontsize{7}{9}\selectfont
+
+\begin{longtable}[t]{llrrrrrrr}
+\caption{\label{tab:walkshed-motifs-by-leaf}\label{tab:skim-of-motifs}Descriptive statistics of motifs of size 3 by Leaf in classification tree}\\
+\toprule
+leaf & leaf description & mean & s.d. & min & first quartile & median & third quartile & max\\
+\midrule
+\cellcolor{gray!10}{Leaf 1} & \cellcolor{gray!10}{Suburban (Type I: low edge density)} & \cellcolor{gray!10}{0.00507} & \cellcolor{gray!10}{0.00056} & \cellcolor{gray!10}{0.00323} & \cellcolor{gray!10}{0.00469} & \cellcolor{gray!10}{0.00517} & \cellcolor{gray!10}{0.00550} & \cellcolor{gray!10}{0.00589}\\
+Leaf 2 & Urban (Type I: low edge density) & 0.00354 & 0.00128 & 0.00117 & 0.00254 & 0.00362 & 0.00450 & 0.00590\\
+\cellcolor{gray!10}{Leaf 3} & \cellcolor{gray!10}{Suburban (Type II: high edge density)} & \cellcolor{gray!10}{0.01654} & \cellcolor{gray!10}{0.02482} & \cellcolor{gray!10}{0.00591} & \cellcolor{gray!10}{0.00757} & \cellcolor{gray!10}{0.01018} & \cellcolor{gray!10}{0.01631} & \cellcolor{gray!10}{0.40000}\\
+Leaf 4 & Urban (Type II: high edge density) & 0.01092 & 0.00869 & 0.00591 & 0.00633 & 0.00710 & 0.01057 & 0.05326\\
+\bottomrule
+\end{longtable}
+\endgroup{}
+
+The differences between walksheds in various types of urban and suburban
+fabric are better appreciated by means of some examples. Fig. REF
+
+\begin{figure}
+\includegraphics[width=0.8\linewidth]{paper_files/figure-latex/sample-sheds-by-leaf-plot-1} \caption{\label{fig:sample-sheds}Examples of walksheds and their networks by Leaf in the classifactions.}\label{fig:sample-sheds-by-leaf-plot}
+\end{figure}
+
+Where are these found?
+
+\begin{figure}
+\includegraphics[width=0.8\linewidth]{paper_files/figure-latex/map-of-leaves-1} \caption{\label{fig:leaves-by-DA}Distribution of Leaf classes in urban and suburban Hamilton (gray area is rural Hamilton).}\label{fig:map-of-leaves}
+\end{figure}
 
 \renewcommand\refname{References}
 \bibliography{../bibliography/bibliography.bib}
