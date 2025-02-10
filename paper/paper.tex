@@ -254,10 +254,11 @@ walkshed}\label{network-attributes-by-walkshed}
 
 In this work we characterize urban and suburban walksheds based on their
 network structure. As a way to capture and describe the structure of
-networks we calculate a selection of 12 network structural attributes
-using the network analysis package \{igraph\} \citep{IgraphManual}. The
-set of attributes that we consider for this work is described Table
-\ref{tab:network-attributes}. \begingroup\fontsize{7}{9}\selectfont
+networks we calculate a dplyr::selection of 12 network structural
+attributes using the network analysis package \{igraph\}
+\citep{IgraphManual}. The set of attributes that we consider for this
+work is described Table \ref{tab:network-attributes}.
+\begingroup\fontsize{7}{9}\selectfont
 
 \begin{longtable}[t]{l>{\raggedright\arraybackslash}p{40em}}
 \caption{\label{tab:network-attributes-descriptive-table}\label{tab:network-attributes}Network attributes in the analysis}\\
@@ -316,7 +317,8 @@ attributes}\label{classification-of-walksheds-based-on-network-attributes}
 Evolutionary trees: discuss training procedure. We used a training
 sample and a test sample. We trained n=30 trees per batch, and saved the
 results for the batch with the best tree (5 batches). The best tree was
-selected based on the evaluation function (write equation and explain).
+dplyr::selected based on the evaluation function (write equation and
+explain).
 
 The results of training an evolutionary classification tree are shown in
 Fig. \ref{fig:evolutionary-tree}. This model addresses our first
@@ -398,11 +400,61 @@ Walksheds in suburban areas tend to be smaller, walksheds in urban areas
 larger. Are there differences between walksheds of Type I and of Type
 II? Test differences of means.
 
-Another feature of suburban environments is that they tend to be lower
-density. Proceed to accessibility calculations.
+\begingroup\fontsize{7}{9}\selectfont
+
+\begin{longtable}[t]{llrrrrrrr}
+\caption{\label{tab:walkshed-area-by-leaf}\label{tab:skim-of-area}Descriptive statistics of walkshed area by Leaf class.}\\
+\toprule
+leaf & leaf description & mean & s.d. & min & first quartile & median & third quartile & max\\
+\midrule
+\cellcolor{gray!10}{Leaf 1} & \cellcolor{gray!10}{Suburban (Type I: low edge density)} & \cellcolor{gray!10}{0.50306} & \cellcolor{gray!10}{0.07392} & \cellcolor{gray!10}{0.30974} & \cellcolor{gray!10}{0.45472} & \cellcolor{gray!10}{0.51397} & \cellcolor{gray!10}{0.55072} & \cellcolor{gray!10}{0.67990}\\
+Leaf 2 & Urban (Type I: low edge density) & 0.57102 & 0.08205 & 0.13681 & 0.52480 & 0.58866 & 0.62817 & 0.73116\\
+\cellcolor{gray!10}{Leaf 3} & \cellcolor{gray!10}{Suburban (Type II: high edge density)} & \cellcolor{gray!10}{0.41292} & \cellcolor{gray!10}{0.11270} & \cellcolor{gray!10}{0.05607} & \cellcolor{gray!10}{0.33932} & \cellcolor{gray!10}{0.41946} & \cellcolor{gray!10}{0.49331} & \cellcolor{gray!10}{0.66563}\\
+Leaf 4 & Urban (Type II: high edge density) & 0.52791 & 0.13327 & 0.23222 & 0.41868 & 0.54966 & 0.64535 & 0.72280\\
+\bottomrule
+\end{longtable}
+\endgroup{}
+
+\begin{verbatim}
+## 
+## Call:
+## betareg::betareg(formula = f1, data = walksheds_train_net_vars)
+## 
+## Quantile residuals:
+##     Min      1Q  Median      3Q     Max 
+## -3.7866 -0.6199  0.0256  0.6279  3.9902 
+## 
+## Coefficients (mean model with logit link):
+##                          Estimate Std. Error z value Pr(>|z|)    
+## (Intercept)            -2.104e+00  1.468e-01 -14.329  < 2e-16 ***
+## edge_density           -1.313e+01  1.332e+00  -9.859  < 2e-16 ***
+## sq_edge_density         3.514e+01  3.723e+00   9.437  < 2e-16 ***
+## sq_normalized_motifs_3  1.691e-01  7.405e-03  22.838  < 2e-16 ***
+## transitivity            1.095e+00  4.501e-01   2.433    0.015 *  
+## global_efficiency      -1.412e+02  2.350e+01  -6.010 1.85e-09 ***
+## mean_distance           1.870e-03  1.288e-04  14.512  < 2e-16 ***
+## 
+## Phi coefficients (precision model with identity link):
+##       Estimate Std. Error z value Pr(>|z|)    
+## (phi)   58.120      2.825   20.57   <2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1 
+## 
+## Type of estimator: ML (maximum likelihood)
+## Log-likelihood:  1120 on 8 Df
+## Pseudo R-squared: 0.7479
+## Number of iterations: 137 (BFGS) + 14 (Fisher scoring)
+\end{verbatim}
+
+\begin{figure}
+\includegraphics[width=0.8\linewidth]{paper_files/figure-latex/plot-betareg-normalized_motifs_3-1} \caption{\label{fig:prop-area-effect-of-network-variables}Estimated proportion of maximum area as a function of edge density and normalized number of motifs of size 3.}\label{fig:plot-betareg-normalized_motifs_3}
+\end{figure}
 
 \subsection{15-min accessibility
 analysis}\label{min-accessibility-analysis}
+
+Another feature of suburban environments is that they tend to be lower
+density. Proceed to accessibility calculations.
 
 Words go here.
 
